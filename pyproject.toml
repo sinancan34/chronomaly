@@ -36,8 +36,19 @@ bigquery = [
     "google-cloud-bigquery>=3.10.0",
     "db-dtypes>=1.1.0",
 ]
-timesfm = [
-    "timesfm>=1.0.0,<2.0.0",
+# TimesFM backend options (install TimesFM from GitHub first: pip install git+https://github.com/google-research/timesfm.git)
+# torch backend is already included in base dependencies
+flax = [
+    "flax",
+    "optax",
+    "einshape",
+    "orbax-checkpoint",
+    "jaxtyping",
+    "jax[cuda]",
+]
+xreg = [
+    "jax[cuda]",
+    "scikit-learn",
 ]
 dev = [
     "pytest>=7.4.0",
@@ -47,7 +58,9 @@ dev = [
 all = [
     "google-cloud-bigquery>=3.10.0",
     "db-dtypes>=1.1.0",
-    "timesfm>=1.0.0,<2.0.0",
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
 ]
 
 [project.urls]

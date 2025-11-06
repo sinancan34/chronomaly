@@ -45,6 +45,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from .outputs.bigquery_writer import BigQueryOutputWriter
+    __all__.append("BigQueryOutputWriter")
+except ImportError:
+    pass
+
 # Optional: TimesFM support
 try:
     from .forecasters.timesfm import TimesFMForecaster

@@ -2,8 +2,10 @@
 pandas>=2.0.0
 numpy>=1.24.0
 
-# TimesFM forecasting
-timesfm>=2.5.0
+# TimesFM forecasting (model version 2.5)
+# IMPORTANT: TimesFM requires Python 3.11 for PyPI packages
+# For Python 3.13: pip install git+https://github.com/google-research/timesfm.git
+# timesfm>=1.0.0,<2.0.0  # Uncomment when using Python 3.11
 torch>=2.0.0
 
 # Data sources

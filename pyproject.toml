@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chronomaly"
+version = "0.1.0"
+description = "A flexible and extensible Python library for time series forecasting using Google TimesFM"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Chronomaly Contributors"}
+]
+keywords = ["time-series", "forecasting", "timesfm", "machine-learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "torch>=2.0.0",
+]
+
+[project.optional-dependencies]
+bigquery = [
+    "google-cloud-bigquery>=3.10.0",
+    "db-dtypes>=1.1.0",
+]
+timesfm = [
+    "timesfm>=1.0.0,<2.0.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+all = [
+    "google-cloud-bigquery>=3.10.0",
+    "db-dtypes>=1.1.0",
+    "timesfm>=1.0.0,<2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/insightlytics/chronomaly"
+Repository = "https://github.com/insightlytics/chronomaly"
+Issues = "https://github.com/insightlytics/chronomaly/issues"
+
+[tool.setuptools]
+packages = ["forecast_library", "forecast_library.data_sources", "forecast_library.transformers", "forecast_library.forecasters", "forecast_library.outputs"]
+
+[tool.setuptools.package-data]
+forecast_library = ["py.typed"]

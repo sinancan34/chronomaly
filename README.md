@@ -13,66 +13,53 @@ A flexible and extensible Python library for time series forecasting using Googl
 
 ## Installation
 
-### Important: Python Version Compatibility
+### Python Version Compatibility
 
-**TimesFM currently supports Python 3.10 - 3.11 only.**
+**TimesFM supports Python 3.11+**
 
-PyPI packages have the following constraints:
-- `timesfm==1.0.0`: Requires Python >=3.10, <3.11
-- `timesfm>=1.2.0`: Requires Python >=3.10, <3.12
+The library works with both Python 3.11 and Python 3.13. We install TimesFM directly from GitHub source, which supports all Python 3.11+ versions.
 
-**If you're using Python 3.13**, you have two options:
-
-#### Option 1: Use Python 3.11 (Recommended)
+### Installation Steps
 
 ```bash
 # Clone the repository
 git clone https://github.com/insightlytics/chronomaly.git
 cd chronomaly
 
-# Create virtual environment with Python 3.11
-python3.11 -m venv venv
+# Create virtual environment (Python 3.11 or 3.13)
+python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install the package in editable mode with dependencies
+# Install TimesFM from GitHub (supports Python 3.11+)
+pip install git+https://github.com/google-research/timesfm.git
+
+# Install Chronomaly in editable mode
 pip install -e .
 
-# For BigQuery support, install with extras
+# Optional: For BigQuery support
 pip install -e ".[bigquery]"
 
-# For TimesFM support (Python 3.11 only)
-pip install -e ".[timesfm]"
-
-# For all features
+# Optional: For all features (BigQuery + development tools)
 pip install -e ".[all]"
 ```
 
-#### Option 2: Install from GitHub Source (Experimental for Python 3.13)
+### About TimesFM Backend Options
 
-```bash
-# Clone the repository
-git clone https://github.com/insightlytics/chronomaly.git
-cd chronomaly
+TimesFM supports multiple backend implementations:
+- **torch** (PyTorch): Already included in Chronomaly's dependencies ✅
+- **flax** (Flax/JAX): Alternative backend, not needed for our PyTorch-based implementation
+- **xreg**: Cross-regression functionality, optional feature
 
-# Create virtual environment with Python 3.13
-python3.13 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install TimesFM from GitHub
-pip install git+https://github.com/google-research/timesfm.git
-
-# Install the package in editable mode
-pip install -e ".[bigquery]"
-```
+Chronomaly uses the PyTorch backend by default, so no additional installation is needed.
 
 ### Requirements
 
-- **Python 3.11** (PyPI packages) or Python 3.13 (GitHub source)
+- Python >= 3.11
 - pandas >= 2.0.0
 - numpy >= 1.24.0
-- timesfm >= 1.0.0 (uses TimesFM 2.5 model with torch backend)
 - torch >= 2.0.0
-- google-cloud-bigquery >= 3.10.0 (for BigQuery support)
+- timesfm (latest from GitHub)
+- google-cloud-bigquery >= 3.10.0 (optional, for BigQuery support)
 - At least 16GB RAM recommended for TimesFM
 
 ## Quick Start
@@ -538,21 +525,17 @@ pip install -e .
 pip install -e ".[all]"
 ```
 
-### Python 3.13 Installation Error
+### TimesFM Installation Issues
 
-**Error:** `ERROR: Could not find a version that satisfies the requirement timesfm>=2.5.0`
+**Error:** `ERROR: Could not find a version that satisfies the requirement timesfm`
 
-**Solution:** TimesFM PyPI packages only support Python 3.10-3.11. Use Python 3.11 or install from GitHub:
+**Solution:** Always install TimesFM from GitHub source (supports Python 3.11+):
 
 ```bash
-# Option 1: Use Python 3.11
-python3.11 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Option 2: Install timesfm from GitHub (for Python 3.13)
 pip install git+https://github.com/google-research/timesfm.git
 ```
+
+This works for both Python 3.11 and Python 3.13.
 
 ### Memory Issues
 

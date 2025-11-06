@@ -140,13 +140,31 @@ transformer = DataTransformer(
     values="sales"
 )
 
-# Multiple dimensions (creates combined IDs)
+# Multiple columns (creates combined IDs)
 transformer = DataTransformer(
     index="date",
     columns=["product_id", "region"],  # Creates product_id_region
     values="sales"
 )
+
+# Multiple index columns (creates MultiIndex)
+# ⚠️ Warning: MultiIndex may not be compatible with TimesFM
+# Use this only if you plan to flatten or reset index before forecasting
+transformer = DataTransformer(
+    index=["date", "store_id"],  # Creates MultiIndex
+    columns="product_id",
+    values="sales"
+)
+
+# Both multiple (MultiIndex + combined column IDs)
+transformer = DataTransformer(
+    index=["date", "region"],           # MultiIndex
+    columns=["product_id", "category"],  # Combined IDs
+    values="sales"
+)
 ```
+
+**Note:** For TimesFM compatibility, it's recommended to use a **single index column** (typically `date`) and multiple columns for time series grouping.
 
 ### Forecaster
 
@@ -302,6 +320,53 @@ print(forecast_df.head())
 output_writer.write(forecast_df)
 ```
 
+### 6. Multi-Index Usage (Advanced)
+
+```python
+from forecast_library import (
+    ForecastPipeline,
+    CSVDataSource,
+    DataTransformer,
+    TimesFMForecaster,
+    SQLiteOutputWriter
+)
+
+data_source = CSVDataSource(
+    file_path="data/hierarchical_sales.csv",
+    date_column="date"
+)
+
+# Using multiple index columns creates MultiIndex
+# ⚠️ This may require additional processing for TimesFM
+transformer = DataTransformer(
+    index=["date", "store_id"],  # MultiIndex: (date, store_id)
+    columns="product_id",
+    values="sales"
+)
+
+forecaster = TimesFMForecaster()
+
+output_writer = SQLiteOutputWriter(
+    database_path="output/forecasts.db",
+    table_name="hierarchical_forecast"
+)
+
+pipeline = ForecastPipeline(
+    data_source=data_source,
+    forecaster=forecaster,
+    output_writer=output_writer,
+    transformer=transformer
+)
+
+# Get forecast with MultiIndex
+forecast_df = pipeline.run_without_output(horizon=28)
+
+# If needed, flatten MultiIndex before using
+# forecast_df = forecast_df.reset_index()
+```
+
+**Note:** MultiIndex support is available but may require additional handling. For standard TimesFM usage, single index (date) with multiple columns is recommended.
+
 ## Output Format
 
 ### Quantile Forecast Output
@@ -351,12 +416,13 @@ forecast_library/
     └── sqlite_writer.py       # SQLite writer
 
 examples/
-├── example_csv.py             # CSV example
-├── example_sqlite.py          # SQLite example
-├── example_bigquery.py        # BigQuery example
-├── example_multi_dimension.py # Multi-column grouping
-├── example_point_forecast.py  # Point forecast
-└── example_without_transform.py # Pre-pivoted data
+├── example_csv.py                # CSV example
+├── example_sqlite.py             # SQLite example
+├── example_bigquery.py           # BigQuery example
+├── example_multi_dimension.py    # Multi-column grouping
+├── example_multi_index.py        # Multi-index usage (advanced)
+├── example_point_forecast.py     # Point forecast
+└── example_without_transform.py  # Pre-pivoted data
 ```
 
 ## Extending the Library

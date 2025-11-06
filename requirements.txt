@@ -9,6 +9,7 @@ torch>=2.0.0
 
 # Data sources
 google-cloud-bigquery>=3.10.0
+google-cloud-bigquery-storage==2.34.0
 db-dtypes>=1.1.0
 
 # Optional: for development

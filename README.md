@@ -1,1 +1,431 @@
-# chronomaly
+# Chronomaly
+
+A flexible and extensible Python library for time series forecasting using Google TimesFM.
+
+## Features
+
+- **Multiple Data Sources**: Load data from CSV, SQLite, and BigQuery
+- **Flexible Transformations**: Built-in pivot functionality for time series data
+- **TimesFM Integration**: Leverage Google's powerful TimesFM model for forecasting
+- **Quantile Forecasts**: Support for both point and quantile predictions
+- **Extensible Architecture**: Easy to add new data sources, forecasters, or output formats
+- **Type-Safe Design**: Built with abstract base classes for clear interfaces
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+### Requirements
+
+- Python 3.13+
+- pandas >= 2.0.0
+- numpy >= 1.24.0
+- timesfm >= 2.5.0
+- torch >= 2.0.0
+- google-cloud-bigquery >= 3.10.0 (for BigQuery support)
+
+## Quick Start
+
+### Basic Example (CSV to SQLite)
+
+```python
+from forecast_library import (
+    ForecastPipeline,
+    CSVDataSource,
+    DataTransformer,
+    TimesFMForecaster,
+    SQLiteOutputWriter
+)
+
+# Configure data source
+data_source = CSVDataSource(
+    file_path="data/sales.csv",
+    date_column="date"
+)
+
+# Configure transformer
+transformer = DataTransformer(
+    index="date",
+    columns="product_id",
+    values="sales"
+)
+
+# Configure forecaster
+forecaster = TimesFMForecaster()
+
+# Configure output
+output_writer = SQLiteOutputWriter(
+    database_path="output/forecasts.db",
+    table_name="sales_forecast"
+)
+
+# Create and run pipeline
+pipeline = ForecastPipeline(
+    data_source=data_source,
+    forecaster=forecaster,
+    output_writer=output_writer,
+    transformer=transformer
+)
+
+# Generate 28-day forecast
+forecast_df = pipeline.run(horizon=28)
+```
+
+## Architecture
+
+The library follows a modular architecture with Strategy Pattern:
+
+```
+ForecastPipeline (Orchestrator)
+├── DataSource (ABC)
+│   ├── CSVDataSource
+│   ├── SQLiteDataSource
+│   └── BigQueryDataSource
+├── DataTransformer
+├── Forecaster (ABC)
+│   └── TimesFMForecaster
+└── OutputWriter (ABC)
+    └── SQLiteOutputWriter
+```
+
+## Components
+
+### Data Sources
+
+#### CSVDataSource
+```python
+data_source = CSVDataSource(
+    file_path="data/sales.csv",
+    date_column="date",
+    # Any pandas.read_csv() parameters
+    encoding='utf-8',
+    sep=','
+)
+```
+
+#### SQLiteDataSource
+```python
+data_source = SQLiteDataSource(
+    database_path="data/sales.db",
+    query="SELECT date, product_id, sales FROM transactions",
+    date_column="date"
+)
+```
+
+#### BigQueryDataSource
+```python
+data_source = BigQueryDataSource(
+    service_account_file="path/to/service_account.json",
+    project="your-gcp-project",
+    query="SELECT * FROM `project.dataset.table`",
+    date_column="date"
+)
+```
+
+### Data Transformer
+
+Transforms long-format data into wide-format pivot tables suitable for forecasting:
+
+```python
+# Single dimension
+transformer = DataTransformer(
+    index="date",
+    columns="product_id",
+    values="sales"
+)
+
+# Multiple dimensions (creates combined IDs)
+transformer = DataTransformer(
+    index="date",
+    columns=["product_id", "region"],  # Creates product_id_region
+    values="sales"
+)
+```
+
+### Forecaster
+
+#### TimesFMForecaster
+
+```python
+forecaster = TimesFMForecaster(
+    model_name='google/timesfm-2.5-200m-pytorch',
+    max_context=1024,
+    max_horizon=256,
+    normalize_inputs=True,
+    use_continuous_quantile_head=True,
+    force_flip_invariance=True,
+    infer_is_positive=True,
+    fix_quantile_crossing=True
+)
+```
+
+**Forecast Types:**
+- **Quantile Forecast** (default): Returns predictions with quantile values separated by `|`
+- **Point Forecast**: Returns single point predictions
+
+```python
+# Quantile forecast
+forecast_df = pipeline.run(horizon=28, return_point=False)
+
+# Point forecast
+forecast_df = pipeline.run(horizon=28, return_point=True)
+```
+
+### Output Writers
+
+#### SQLiteOutputWriter
+
+```python
+output_writer = SQLiteOutputWriter(
+    database_path="output/forecasts.db",
+    table_name="sales_forecast",
+    if_exists='replace'  # or 'append', 'fail'
+)
+```
+
+## Usage Examples
+
+### 1. CSV with Multi-Dimensional Grouping
+
+```python
+from forecast_library import (
+    ForecastPipeline,
+    CSVDataSource,
+    DataTransformer,
+    TimesFMForecaster,
+    SQLiteOutputWriter
+)
+
+data_source = CSVDataSource(
+    file_path="data/sales.csv",
+    date_column="date"
+)
+
+# Multiple grouping columns
+transformer = DataTransformer(
+    index="date",
+    columns=["product_id", "region"],
+    values="sales"
+)
+
+forecaster = TimesFMForecaster()
+
+output_writer = SQLiteOutputWriter(
+    database_path="output/forecasts.db",
+    table_name="multi_dim_forecast"
+)
+
+pipeline = ForecastPipeline(
+    data_source=data_source,
+    forecaster=forecaster,
+    output_writer=output_writer,
+    transformer=transformer
+)
+
+forecast_df = pipeline.run(horizon=30)
+```
+
+### 2. SQLite Source
+
+```python
+data_source = SQLiteDataSource(
+    database_path="data/transactions.db",
+    query="""
+        SELECT date, product_id, SUM(amount) as sales
+        FROM transactions
+        WHERE date >= '2023-01-01'
+        GROUP BY date, product_id
+    """,
+    date_column="date"
+)
+
+# ... rest of the pipeline
+```
+
+### 3. BigQuery Source
+
+```python
+data_source = BigQueryDataSource(
+    service_account_file="credentials/service_account.json",
+    project="my-project",
+    query="""
+        SELECT
+            DATE(timestamp) as date,
+            product_id,
+            SUM(sales) as sales
+        FROM `project.dataset.sales`
+        WHERE DATE(timestamp) >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)
+        GROUP BY date, product_id
+    """,
+    date_column="date"
+)
+
+# ... rest of the pipeline
+```
+
+### 4. Without Transformation (Pre-Pivoted Data)
+
+```python
+# If your data is already in pivot format
+data_source = CSVDataSource(
+    file_path="data/sales_pivot.csv",
+    date_column="date",
+    index_col="date",
+    parse_dates=True
+)
+
+pipeline = ForecastPipeline(
+    data_source=data_source,
+    forecaster=forecaster,
+    output_writer=output_writer,
+    transformer=None  # No transformation needed
+)
+
+forecast_df = pipeline.run(horizon=28)
+```
+
+### 5. Preview Without Writing
+
+```python
+# Generate forecast without writing to output
+forecast_df = pipeline.run_without_output(horizon=28)
+
+print(forecast_df.head())
+
+# Later, write manually if satisfied
+output_writer.write(forecast_df)
+```
+
+## Output Format
+
+### Quantile Forecast Output
+
+```
+date       | product_1           | product_2           | ...
+-----------|---------------------|---------------------|----
+2024-01-01 | 0.1|0.5|0.9         | 0.2|0.6|1.0         | ...
+2024-01-02 | 0.15|0.55|0.95      | 0.25|0.65|1.05      | ...
+...
+```
+
+Values are separated by `|` representing different quantiles (e.g., 10th, 50th, 90th percentiles).
+
+### Point Forecast Output
+
+```
+date       | product_1 | product_2 | ...
+-----------|-----------|-----------|----
+2024-01-01 | 0.5       | 0.6       | ...
+2024-01-02 | 0.55      | 0.65      | ...
+...
+```
+
+## Project Structure
+
+```
+forecast_library/
+├── __init__.py
+├── pipeline.py                 # ForecastPipeline orchestrator
+├── data_sources/
+│   ├── __init__.py
+│   ├── base.py                # DataSource ABC
+│   ├── csv_source.py          # CSV implementation
+│   ├── sqlite_source.py       # SQLite implementation
+│   └── bigquery_source.py     # BigQuery implementation
+├── transformers/
+│   ├── __init__.py
+│   └── pivot.py               # DataTransformer
+├── forecasters/
+│   ├── __init__.py
+│   ├── base.py                # Forecaster ABC
+│   └── timesfm.py             # TimesFM implementation
+└── outputs/
+    ├── __init__.py
+    ├── base.py                # OutputWriter ABC
+    └── sqlite_writer.py       # SQLite writer
+
+examples/
+├── example_csv.py             # CSV example
+├── example_sqlite.py          # SQLite example
+├── example_bigquery.py        # BigQuery example
+├── example_multi_dimension.py # Multi-column grouping
+├── example_point_forecast.py  # Point forecast
+└── example_without_transform.py # Pre-pivoted data
+```
+
+## Extending the Library
+
+### Adding a New Data Source
+
+```python
+from forecast_library.data_sources.base import DataSource
+import pandas as pd
+
+class CustomDataSource(DataSource):
+    def __init__(self, **kwargs):
+        # Your initialization
+        pass
+
+    def load(self) -> pd.DataFrame:
+        # Your data loading logic
+        df = load_your_data()
+        return df
+```
+
+### Adding a New Forecaster
+
+```python
+from forecast_library.forecasters.base import Forecaster
+import pandas as pd
+
+class CustomForecaster(Forecaster):
+    def __init__(self, **kwargs):
+        # Your initialization
+        pass
+
+    def forecast(self, dataframe: pd.DataFrame, horizon: int) -> pd.DataFrame:
+        # Your forecasting logic
+        forecast_df = your_forecast_logic(dataframe, horizon)
+        return forecast_df
+```
+
+### Adding a New Output Writer
+
+```python
+from forecast_library.outputs.base import OutputWriter
+import pandas as pd
+
+class CustomOutputWriter(OutputWriter):
+    def __init__(self, **kwargs):
+        # Your initialization
+        pass
+
+    def write(self, dataframe: pd.DataFrame) -> None:
+        # Your output logic
+        write_your_output(dataframe)
+```
+
+## Future Enhancements
+
+The architecture supports easy addition of:
+
+- **Anomaly Detection**: `AnomalyDetector` class for detecting outliers
+- **Notifications**: `NotificationService` for email/Slack alerts
+- **Actuals Loading**: `ActualsLoader` for loading realized values
+- **Additional Forecasters**: Prophet, ARIMA, custom models
+- **Additional Outputs**: BigQuery, S3, Parquet, etc.
+
+## License
+
+See LICENSE file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Acknowledgments
+
+- Built with [Google TimesFM](https://github.com/google-research/timesfm)
+- Inspired by modern data pipeline architectures

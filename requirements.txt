@@ -1,0 +1,16 @@
+# Core dependencies
+pandas>=2.0.0
+numpy>=1.24.0
+
+# TimesFM forecasting
+timesfm>=2.5.0
+torch>=2.0.0
+
+# Data sources
+google-cloud-bigquery>=3.10.0
+db-dtypes>=1.1.0
+
+# Optional: for development
+# pytest>=7.4.0
+# black>=23.0.0
+# flake8>=6.0.0

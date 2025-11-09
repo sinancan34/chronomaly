@@ -4,7 +4,7 @@ Forecast vs Actual anomaly detection implementation.
 
 import pandas as pd
 import numpy as np
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List
 from .base import AnomalyDetector
 from ..transformers.pivot import DataTransformer
 
@@ -19,9 +19,8 @@ class ForecastActualComparator(AnomalyDetector):
     3. Compares actual values against the confidence interval
     4. Calculates deviation percentages
     5. Splits metric names into dimension columns (optional)
-    6. Applies dimension name mappings (optional)
-    7. Filters by cumulative threshold (optional)
-    8. Returns only anomalies (optional)
+    6. Filters by cumulative threshold (optional)
+    7. Returns only anomalies (optional)
 
     The forecast data is expected to be in pivot format with pipe-separated quantiles:
     "point|q10|q20|q30|q40|q50|q60|q70|q80|q90"
@@ -32,7 +31,6 @@ class ForecastActualComparator(AnomalyDetector):
         date_column: Name of the date column (default: 'date')
         exclude_columns: List of columns to exclude from comparison (e.g., ['date', 'company'])
         dimension_names: List of dimension names to extract from metric (e.g., ['platform', 'channel', 'landing_page'])
-        dimension_mappings: Dict mapping dimension names to their value mappings (optional)
         cumulative_threshold: Filter to top X% of metrics by forecast value (e.g., 0.95 for top 95%)
         return_only_anomalies: If True, return only BELOW_P10 and ABOVE_P90 statuses (default: False)
         min_deviation_threshold: Minimum deviation threshold to include (e.g., 0.05 for 5%)
@@ -45,7 +43,6 @@ class ForecastActualComparator(AnomalyDetector):
         date_column: str = 'date',
         exclude_columns: Optional[List[str]] = None,
         dimension_names: Optional[List[str]] = None,
-        dimension_mappings: Optional[Dict[str, Dict[str, str]]] = None,
         cumulative_threshold: Optional[float] = None,
         return_only_anomalies: bool = False,
         min_deviation_threshold: float = 0.0,
@@ -55,42 +52,10 @@ class ForecastActualComparator(AnomalyDetector):
         self.date_column = date_column
         self.exclude_columns = exclude_columns or [date_column]
         self.dimension_names = dimension_names
-        self.dimension_mappings = dimension_mappings or {}
         self.cumulative_threshold = cumulative_threshold
         self.return_only_anomalies = return_only_anomalies
         self.min_deviation_threshold = min_deviation_threshold
         self.format_deviation_as_string = format_deviation_as_string
-
-    @staticmethod
-    def create_mapping_from_dataframe(df: pd.DataFrame, column_name: str) -> Dict[str, str]:
-        """
-        Create a mapping dictionary from a DataFrame column.
-
-        Maps normalized keys (lowercase, no spaces/special chars) to original values.
-
-        Args:
-            df: DataFrame containing the column
-            column_name: Name of the column to create mapping from
-
-        Returns:
-            Dict[str, str]: Mapping from normalized keys to original values
-
-        Example:
-            Input column: ['Mobile App', 'Desktop Web', 'Mobile-Web']
-            Output: {'mobileapp': 'Mobile App', 'desktopweb': 'Desktop Web', 'mobileweb': 'Mobile-Web'}
-        """
-        value_map = {}
-
-        if column_name not in df.columns:
-            return value_map
-
-        for value in df[column_name].dropna().unique():
-            value_str = str(value)
-            # Normalize: lowercase, remove spaces, hyphens, parentheses
-            key = value_str.lower().replace(' ', '').replace('-', '').replace('(', '').replace(')', '').replace('.', '').replace('_', '')
-            value_map[key] = value_str
-
-        return value_map
 
     def detect(
         self,
@@ -346,13 +311,6 @@ class ForecastActualComparator(AnomalyDetector):
         for i, dim_name in enumerate(self.dimension_names):
             if i < metric_parts.shape[1]:
                 df[dim_name] = metric_parts[i]
-
-                # Apply mapping if available
-                if dim_name in self.dimension_mappings:
-                    # Normalize for mapping lookup
-                    df[dim_name] = df[dim_name].apply(
-                        lambda x: self.dimension_mappings[dim_name].get(str(x).lower(), str(x)) if pd.notna(x) else x
-                    )
             else:
                 df[dim_name] = None
 

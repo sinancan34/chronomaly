@@ -2,4 +2,10 @@
 Comparison and anomaly detection components.
 """
 
-__all__ = []
+from .base import AnomalyDetector
+from .forecast_actual import ForecastActualComparator
+
+__all__ = [
+    'AnomalyDetector',
+    'ForecastActualComparator'
+]

@@ -17,8 +17,8 @@ Usage:
 import pandas as pd
 from datetime import datetime
 from chronomaly.application.workflows import AnomalyDetectionWorkflow
-from chronomaly.infrastructure.data.readers import CSVReader
-from chronomaly.infrastructure.data.writers import CSVWriter
+from chronomaly.infrastructure.data.readers.files import CSVDataReader
+from chronomaly.infrastructure.data.writers.databases import SQLiteDataWriter
 from chronomaly.infrastructure.comparators import ForecastActualComparator
 from chronomaly.infrastructure.transformers import DataTransformer
 
@@ -72,8 +72,8 @@ def example_basic_workflow():
     create_sample_actual_csv()
 
     # Configure data readers
-    forecast_reader = CSVReader(file_path='/tmp/forecast.csv')
-    actual_reader = CSVReader(file_path='/tmp/actual.csv')
+    forecast_reader = CSVDataReader(file_path='/tmp/forecast.csv')
+    actual_reader = CSVDataReader(file_path='/tmp/actual.csv')
 
     # Configure transformer (pivot actual data to match forecast format)
     transformer = DataTransformer(
@@ -90,7 +90,10 @@ def example_basic_workflow():
     )
 
     # Configure data writer
-    writer = CSVWriter(file_path='/tmp/anomalies.csv')
+    writer = SQLiteDataWriter(
+        database_path='/tmp/anomalies.db',
+        table_name='anomaly_results'
+    )
 
     # Create and run workflow
     workflow = AnomalyDetectionWorkflow(
@@ -103,7 +106,7 @@ def example_basic_workflow():
     results = workflow.run()
 
     print(f"\nDetection complete! Found {len(results)} metrics analyzed.")
-    print(f"Results saved to: /tmp/anomalies.csv")
+    print(f"Results saved to: /tmp/anomalies.db (table: anomaly_results)")
     print("\nSample results:")
     print(results.head(10).to_string(index=False))
 
@@ -127,8 +130,8 @@ def example_advanced_workflow():
     create_sample_actual_csv()
 
     # Configure data readers
-    forecast_reader = CSVReader(file_path='/tmp/forecast.csv')
-    actual_reader = CSVReader(file_path='/tmp/actual.csv')
+    forecast_reader = CSVDataReader(file_path='/tmp/forecast.csv')
+    actual_reader = CSVDataReader(file_path='/tmp/actual.csv')
 
     # Configure transformer
     transformer = DataTransformer(
@@ -150,7 +153,7 @@ def example_advanced_workflow():
     )
 
     # Configure data writer
-    writer = CSVWriter(file_path='/tmp/anomalies_filtered.csv')
+    writer = SQLiteDataWriter(database_path='/tmp/anomalies_filtered.db', table_name='anomaly_results')
 
     # Create and run workflow
     workflow = AnomalyDetectionWorkflow(
@@ -163,7 +166,7 @@ def example_advanced_workflow():
     results = workflow.run()
 
     print(f"\nDetection complete! Found {len(results)} anomalies.")
-    print(f"Results saved to: /tmp/anomalies_filtered.csv")
+    print(f"Results saved to: /tmp/anomalies_filtered.db (table: anomaly_results)")
 
     if len(results) > 0:
         print("\nAnomaly details:")
@@ -186,8 +189,8 @@ def example_workflow_without_output():
     create_sample_actual_csv()
 
     # Configure readers, transformer, and detector
-    forecast_reader = CSVReader(file_path='/tmp/forecast.csv')
-    actual_reader = CSVReader(file_path='/tmp/actual.csv')
+    forecast_reader = CSVDataReader(file_path='/tmp/forecast.csv')
+    actual_reader = CSVDataReader(file_path='/tmp/actual.csv')
 
     transformer = DataTransformer(
         index='date',
@@ -202,7 +205,7 @@ def example_workflow_without_output():
     )
 
     # Writer is still required for workflow initialization, but won't be used
-    writer = CSVWriter(file_path='/tmp/unused.csv')
+    writer = SQLiteDataWriter(database_path='/tmp/unused.db', table_name='anomaly_results')
 
     # Create workflow
     workflow = AnomalyDetectionWorkflow(
@@ -226,9 +229,9 @@ def example_workflow_without_output():
 
     # Now you can decide whether to save the results
     if len(anomalies) >= 2:
-        print("\nSignificant anomalies detected! Saving to file...")
+        print("\nSignificant anomalies detected! Saving to database...")
         writer.write(anomalies)
-        print("Saved to /tmp/unused.csv")
+        print("Saved to /tmp/unused.db (table: anomaly_results)")
 
 
 def example_error_handling():
@@ -245,8 +248,8 @@ def example_error_handling():
     empty_df = pd.DataFrame()
     empty_df.to_csv('/tmp/empty_forecast.csv', index=False)
 
-    forecast_reader = CSVReader(file_path='/tmp/empty_forecast.csv')
-    actual_reader = CSVReader(file_path='/tmp/actual.csv')
+    forecast_reader = CSVDataReader(file_path='/tmp/empty_forecast.csv')
+    actual_reader = CSVDataReader(file_path='/tmp/actual.csv')
 
     transformer = DataTransformer(
         index='date',
@@ -259,7 +262,7 @@ def example_error_handling():
         date_column='date'
     )
 
-    writer = CSVWriter(file_path='/tmp/output.csv')
+    writer = SQLiteDataWriter(database_path='/tmp/output.db', table_name='anomaly_results')
 
     workflow = AnomalyDetectionWorkflow(
         forecast_reader=forecast_reader,

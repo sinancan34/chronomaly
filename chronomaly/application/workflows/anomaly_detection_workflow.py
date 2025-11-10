@@ -3,45 +3,65 @@ Anomaly detection workflow orchestrator.
 """
 
 import pandas as pd
-from typing import Optional, List
+from typing import Optional, List, Dict, Callable
 from ...infrastructure.data.readers.base import DataReader
 from ...infrastructure.anomaly_detectors.base import AnomalyDetector
 from ...infrastructure.data.writers.base import DataWriter
-from ...infrastructure.filters.pre import PreFilter
-from ...infrastructure.filters.post import PostFilter
 
 
 class AnomalyDetectionWorkflow:
     """
     Main orchestrator class for the anomaly detection workflow.
 
-    This class coordinates the entire anomaly detection workflow:
-    1. Load forecast and actual data from sources
-    2. Apply pre-filters to reduce dataset (optional)
-    3. Detect anomalies by comparing forecast vs actual
-    4. Apply post-filters and transformations (optional)
-    5. Write results to output
+    This workflow supports flexible DataFrame transformers at ANY stage:
+    1. Load forecast data
+    2. Apply transformers (after_forecast_read) - Optional
+    3. Load actual data
+    4. Apply transformers (after_actual_read) - Optional
+    5. Detect anomalies
+    6. Apply transformers (after_detection) - Optional
+    7. Write results
 
     Args:
-        forecast_reader: Data reader instance for forecast data
-        actual_reader: Data reader instance for actual data
+        forecast_reader: Data reader for forecast data
+        actual_reader: Data reader for actual data
         anomaly_detector: Anomaly detector instance
-        data_writer: Data writer instance for anomaly results
-        pre_filters: List of pre-filters to apply before detection (optional)
-        post_filters: List of post-filters to apply after detection (optional)
+        data_writer: Data writer for results
+        transformers: Dict of transformer lists for different stages
 
-    Example:
-        from chronomaly.infrastructure.filters.pre import CumulativeThresholdFilter
-        from chronomaly.infrastructure.filters.post import AnomalyFilter, DeviationFormatter
+    Transformer Stages:
+        'after_forecast_read': Applied after loading forecast data
+        'after_actual_read': Applied after loading actual data
+        'after_detection': Applied after anomaly detection
+        'before_write': Applied just before writing (rarely needed)
 
-        # Configure workflow with pre and post filters
+    Example - Simple (backward compatible):
         workflow = AnomalyDetectionWorkflow(
-            forecast_reader=forecast_reader,
-            actual_reader=actual_reader,
+            forecast_reader=reader,
+            actual_reader=reader,
+            anomaly_detector=detector,
+            data_writer=writer
+        )
+
+    Example - With transformers:
+        from chronomaly.infrastructure.transformers.filters import (
+            CumulativeThresholdFilter, ValueFilter
+        )
+        from chronomaly.infrastructure.transformers.formatters import (
+            PercentageFormatter
+        )
+
+        workflow = AnomalyDetectionWorkflow(
+            forecast_reader=reader,
+            actual_reader=reader,
             anomaly_detector=detector,
             data_writer=writer,
-            pre_filters=[CumulativeThresholdFilter(transformer, threshold_pct=0.95)],
-            post_filters=[AnomalyFilter(), DeviationFormatter()]
+            transformers={
+                'after_detection': [
+                    ValueFilter('status', ['BELOW_LOWER', 'ABOVE_UPPER']),
+                    PercentageFormatter('deviation_pct')
+                ]
+            }
         )
     """
 
@@ -51,70 +71,97 @@ class AnomalyDetectionWorkflow:
         actual_reader: DataReader,
         anomaly_detector: AnomalyDetector,
         data_writer: DataWriter,
-        pre_filters: Optional[List[PreFilter]] = None,
-        post_filters: Optional[List[PostFilter]] = None
+        transformers: Optional[Dict[str, List[Callable]]] = None
     ):
         self.forecast_reader = forecast_reader
         self.actual_reader = actual_reader
         self.anomaly_detector = anomaly_detector
         self.data_writer = data_writer
-        self.pre_filters = pre_filters or []
-        self.post_filters = post_filters or []
+        self.transformers = transformers or {}
+
+        # Validate transformer stages
+        valid_stages = {'after_forecast_read', 'after_actual_read', 'after_detection', 'before_write'}
+        for stage in self.transformers.keys():
+            if stage not in valid_stages:
+                raise ValueError(f"Invalid transformer stage: {stage}. Must be one of {valid_stages}")
+
+    def _apply_transformers(self, df: pd.DataFrame, stage: str) -> pd.DataFrame:
+        """
+        Apply transformers for a specific stage.
+
+        Args:
+            df: DataFrame to transform
+            stage: Stage name ('after_forecast_read', 'after_actual_read', etc.)
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame
+        """
+        if stage not in self.transformers:
+            return df
+
+        result = df
+        for transformer in self.transformers[stage]:
+            # Support both .filter() and .format() methods
+            if hasattr(transformer, 'filter'):
+                result = transformer.filter(result)
+            elif hasattr(transformer, 'format'):
+                result = transformer.format(result)
+            elif callable(transformer):
+                result = transformer(result)
+            else:
+                raise TypeError(f"Transformer must have .filter(), .format() method or be callable")
+
+        return result
 
     def _execute_detection(self) -> pd.DataFrame:
         """
-        Shared detection logic for running anomaly detection.
+        Execute anomaly detection with flexible transformer pipeline.
 
         Pipeline:
-        1. Load data
-        2. Apply pre-filters
-        3. Detect anomalies
-        4. Apply post-filters
-        5. Return results
+        1. Load forecast data
+        2. Apply transformers (after_forecast_read)
+        3. Load actual data
+        4. Apply transformers (after_actual_read)
+        5. Detect anomalies
+        6. Apply transformers (after_detection)
+        7. Return results
 
         Returns:
-            pd.DataFrame: The anomaly detection results
+            pd.DataFrame: Anomaly detection results
 
         Raises:
-            ValueError: If loaded data is empty or incompatible
+            ValueError: If data is empty or incompatible
         """
         # Step 1: Load forecast data
         forecast_df = self.forecast_reader.load()
-
-        # Validate forecast data
         if forecast_df is None or forecast_df.empty:
-            raise ValueError(
-                "Forecast reader returned empty dataset. Cannot proceed with anomaly detection."
-            )
+            raise ValueError("Forecast reader returned empty dataset.")
 
-        # Step 2: Load actual data
+        # Step 2: Apply forecast transformers
+        forecast_df = self._apply_transformers(forecast_df, 'after_forecast_read')
+
+        # Step 3: Load actual data
         actual_df = self.actual_reader.load()
-
-        # Validate actual data
         if actual_df is None or actual_df.empty:
-            raise ValueError(
-                "Actual reader returned empty dataset. Cannot proceed with anomaly detection."
-            )
+            raise ValueError("Actual reader returned empty dataset.")
 
-        # Step 3: Apply pre-filters (e.g., cumulative threshold)
-        for pre_filter in self.pre_filters:
-            forecast_df, actual_df = pre_filter.filter(forecast_df, actual_df)
+        # Step 4: Apply actual transformers
+        actual_df = self._apply_transformers(actual_df, 'after_actual_read')
 
-        # Step 4: Detect anomalies
+        # Step 5: Detect anomalies
         anomaly_df = self.anomaly_detector.detect(
             forecast_df=forecast_df,
             actual_df=actual_df
         )
 
-        # Validate anomaly detection results
         if anomaly_df is None or anomaly_df.empty:
-            raise ValueError(
-                "Anomaly detector returned empty results. Check your data and configuration."
-            )
+            raise ValueError("Anomaly detector returned empty results.")
 
-        # Step 5: Apply post-filters (e.g., anomaly filter, deviation formatter)
-        for post_filter in self.post_filters:
-            anomaly_df = post_filter.process(anomaly_df)
+        # Step 6: Apply detection result transformers
+        anomaly_df = self._apply_transformers(anomaly_df, 'after_detection')
+
+        # Step 7: Apply before-write transformers (optional)
+        anomaly_df = self._apply_transformers(anomaly_df, 'before_write')
 
         return anomaly_df
 

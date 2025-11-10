@@ -1,10 +1,10 @@
 """
-Advanced: Anomaly Detection with Pre and Post Filters
+Advanced: Anomaly Detection with Transformers (Filters and Formatters)
 
-This example demonstrates the power of filters:
-1. PRE-FILTER: Reduce dataset before detection (CumulativeThresholdFilter)
+This example demonstrates the power of general-purpose transformers:
+1. TRANSFORM: Apply transformers at any stage of the pipeline
 2. DETECT: Run anomaly detection
-3. POST-FILTER: Filter and format results (AnomalyFilter, DeviationFormatter)
+3. TRANSFORM: Apply filters and formatters to results
 
 Use Case: Focus on top metrics and format results for reporting
 
@@ -77,13 +77,12 @@ def create_actual_with_anomalies():
 
 print("\n📋 WORKFLOW CONFIGURATION")
 print("=" * 70)
-print("Input:       /tmp/comprehensive_forecast.csv (7 metrics)")
-print("             /tmp/comprehensive_actual.csv")
-print("Pre-Filter:  CumulativeThresholdFilter (top 95%)")
-print("Post-Filter: AnomalyFilter (only anomalies)")
-print("             DeviationFilter (min 10% deviation)")
-print("             DeviationFormatter (format as percentage)")
-print("Output:      /tmp/filtered_anomalies.db")
+print("Input:        /tmp/comprehensive_forecast.csv (7 metrics)")
+print("              /tmp/comprehensive_actual.csv")
+print("Transformers: ValueFilter (only anomalies)")
+print("              ColumnFilter (min 10% deviation)")
+print("              PercentageFormatter (format as percentage)")
+print("Output:       /tmp/filtered_anomalies.db")
 print()
 
 forecast = create_comprehensive_forecast()
@@ -99,12 +98,13 @@ from chronomaly.infrastructure.data.writers.databases import SQLiteDataWriter
 from chronomaly.infrastructure.anomaly_detectors import ForecastActualAnomalyDetector
 from chronomaly.infrastructure.transformers import DataTransformer
 
-# Import filters
-from chronomaly.infrastructure.filters.pre import CumulativeThresholdFilter
-from chronomaly.infrastructure.filters.post import (
-    AnomalyFilter,
-    DeviationFilter,
-    DeviationFormatter
+# Import general-purpose transformers
+from chronomaly.infrastructure.transformers.filters import (
+    ValueFilter,
+    ColumnFilter
+)
+from chronomaly.infrastructure.transformers.formatters import (
+    PercentageFormatter
 )
 
 # Configure readers
@@ -119,17 +119,6 @@ transformer = DataTransformer(
 )
 
 # ═══════════════════════════════════════════════════════════════
-# PRE-FILTER: Reduce dataset BEFORE detection
-# ═══════════════════════════════════════════════════════════════
-pre_filter = CumulativeThresholdFilter(
-    transformer=transformer,
-    threshold_pct=0.95  # Keep only top 95% metrics by forecast value
-)
-
-# This will filter out low-value metrics (other_organic_blog, other_paid_blog)
-# BEFORE running anomaly detection, saving computation time
-
-# ═══════════════════════════════════════════════════════════════
 # DETECTOR: Pure anomaly detection
 # ═══════════════════════════════════════════════════════════════
 detector = ForecastActualAnomalyDetector(
@@ -140,33 +129,43 @@ detector = ForecastActualAnomalyDetector(
 )
 
 # ═══════════════════════════════════════════════════════════════
-# POST-FILTERS: Process results AFTER detection
+# TRANSFORMERS: General-purpose DataFrame transformations
 # ═══════════════════════════════════════════════════════════════
 
-# Filter 1: Keep only anomalies
-anomaly_filter = AnomalyFilter()
-
-# Filter 2: Keep only significant deviations (>10%)
-deviation_filter = DeviationFilter(
-    min_deviation_pct=10.0,
-    keep_in_range=False  # Remove IN_RANGE status
+# Transformer 1: Keep only anomalies (BELOW_LOWER, ABOVE_UPPER)
+anomaly_filter = ValueFilter(
+    column='status',
+    values=['BELOW_LOWER', 'ABOVE_UPPER'],
+    mode='include'
 )
 
-# Filter 3: Format deviation as percentage string
-formatter = DeviationFormatter(decimal_places=1)
+# Transformer 2: Keep only significant deviations (>10%)
+deviation_filter = ColumnFilter(
+    column='deviation_pct',
+    min_value=10.0
+)
 
-post_filters = [anomaly_filter, deviation_filter, formatter]
+# Transformer 3: Format deviation as percentage string
+formatter = PercentageFormatter(
+    columns='deviation_pct',
+    decimal_places=1
+)
 
 # ═══════════════════════════════════════════════════════════════
-# WORKFLOW: Assemble pipeline
+# WORKFLOW: Assemble pipeline with transformers at any stage
 # ═══════════════════════════════════════════════════════════════
 workflow = AnomalyDetectionWorkflow(
     forecast_reader=forecast_reader,
     actual_reader=actual_reader,
     anomaly_detector=detector,
     data_writer=SQLiteDataWriter('/tmp/filtered_anomalies.db', 'anomalies'),
-    pre_filters=[pre_filter],        # Applied before detection
-    post_filters=post_filters         # Applied after detection
+    transformers={
+        'after_detection': [
+            anomaly_filter,      # Filter to only anomalies
+            deviation_filter,    # Filter to significant deviations
+            formatter            # Format as percentage
+        ]
+    }
 )
 
 # Run the pipeline
@@ -174,9 +173,8 @@ results = workflow.run()
 
 print(f"\\n✓ Pipeline complete!")
 print(f"  Input metrics: 7")
-print(f"  After pre-filter: ~5 (top 95%)")
 print(f"  After detection: {len(results)}")
-print(f"  Significant anomalies: {len(results[results['deviation_pct'] != '0.0%'])}")
+print(f"  Significant anomalies: {len(results)}")
 '''
 
 print(workflow_code)
@@ -184,24 +182,27 @@ print(workflow_code)
 print("\n\n📊 PIPELINE FLOW")
 print("=" * 70)
 print("""
-Step 1: PRE-FILTER
-  Input:  7 metrics
-  Filter: CumulativeThresholdFilter (top 95%)
-  Output: ~5 metrics (filtered out low-value metrics)
+Step 1: LOAD FORECAST
+  Input:  /tmp/comprehensive_forecast.csv
+  Output: 7 metrics with quantiles
 
-Step 2: DETECT
-  Input:  5 metrics
+Step 2: LOAD ACTUAL
+  Input:  /tmp/comprehensive_actual.csv
+  Output: 7 actual measurements
+
+Step 3: DETECT ANOMALIES
+  Input:  7 forecast + 7 actual
   Detect: Compare actual vs forecast with q10/q90
-  Output: 5 detection results (all statuses)
+  Output: 7 detection results (all statuses)
 
-Step 3: POST-FILTER
-  Input:  5 detection results
-  Filter: AnomalyFilter → Keep only ABOVE_UPPER/BELOW_LOWER
-  Filter: DeviationFilter → Keep only >10% deviation
-  Format: DeviationFormatter → "16.7%" instead of 16.7
+Step 4: TRANSFORM (after_detection)
+  Input:  7 detection results
+  Filter: ValueFilter → Keep only ABOVE_UPPER/BELOW_LOWER
+  Filter: ColumnFilter → Keep only >10% deviation
+  Format: PercentageFormatter → "16.7%" instead of 16.7
   Output: 2 significant anomalies
 
-Step 4: WRITE
+Step 5: WRITE
   Output: Save to SQLite database
 """)
 
@@ -223,65 +224,83 @@ expected_results = pd.DataFrame({
 
 print(expected_results.to_string(index=False))
 
-print("\n\n💡 WHY USE FILTERS?")
+print("\n\n💡 WHY USE TRANSFORMERS?")
 print("=" * 70)
 print("""
-1. PRE-FILTERS (Before Detection)
-   ✓ Reduce computation time
-   ✓ Focus on important metrics
-   ✓ Filter by forecast value, date range, dimensions
-   ✓ Example: CumulativeThresholdFilter keeps top 95%
+1. GENERAL-PURPOSE TRANSFORMERS
+   ✓ Apply at ANY stage: after_forecast_read, after_actual_read,
+                         after_detection, before_write
+   ✓ Not limited to anomaly detection - use in ANY workflow
+   ✓ Reusable across different pipelines
+   ✓ Example: ValueFilter can filter forecast, actual, or anomaly data
 
-2. POST-FILTERS (After Detection)
-   ✓ Clean up results
-   ✓ Focus on actionable anomalies
-   ✓ Format for reporting
-   ✓ Example: AnomalyFilter removes IN_RANGE status
+2. TRANSFORMER TYPES
+   ✓ Filters: ValueFilter, ColumnFilter, etc.
+   ✓ Formatters: PercentageFormatter, ColumnFormatter, etc.
+   ✓ Pivot: DataTransformer (wide ↔ long format)
 
-3. Benefits
-   ✓ Modular: Add/remove filters easily
-   ✓ Composable: Chain multiple filters
-   ✓ Testable: Test each filter independently
-   ✓ Flexible: Use same filter in different pipelines
+3. BENEFITS
+   ✓ Modular: Add/remove transformers easily
+   ✓ Composable: Chain multiple transformers
+   ✓ Testable: Test each transformer independently
+   ✓ Flexible: Use same transformer in different stages
+   ✓ Cleaner code: Detector only detects, transformers transform
 """)
 
-print("\n\n🔧 FILTER CUSTOMIZATION")
+print("\n\n🔧 TRANSFORMER CUSTOMIZATION")
 print("=" * 70)
 
 customization_code = '''
-# Example 1: Stricter filters
-strict_post_filters = [
-    AnomalyFilter(),
-    DeviationFilter(min_deviation_pct=20.0),  # Only >20% deviation
-    DeviationFormatter(decimal_places=2)       # 2 decimal places
+# Example 1: Apply transformers at different stages
+workflow = AnomalyDetectionWorkflow(
+    forecast_reader=reader,
+    actual_reader=reader,
+    anomaly_detector=detector,
+    data_writer=writer,
+    transformers={
+        'after_forecast_read': [
+            # Filter forecast data before detection
+            ValueFilter('date', datetime(2024, 11, 1), mode='include')
+        ],
+        'after_actual_read': [
+            # Filter actual data before detection
+            ColumnFilter('sessions', min_value=100)
+        ],
+        'after_detection': [
+            # Filter and format results
+            ValueFilter('status', ['BELOW_LOWER', 'ABOVE_UPPER']),
+            ColumnFilter('deviation_pct', min_value=20.0),
+            PercentageFormatter('deviation_pct', decimal_places=2)
+        ]
+    }
+)
+
+# Example 2: Focus on specific dimensions
+transformers_after_detection = [
+    ValueFilter('platform', ['desktop', 'mobile']),  # Exclude tablet
+    ValueFilter('status', ['BELOW_LOWER', 'ABOVE_UPPER']),
+    PercentageFormatter('deviation_pct')
 ]
 
-# Example 2: Focus on specific platforms
-from chronomaly.infrastructure.filters.post import ValueFilter
+# Example 3: Multi-tier alerting
+# Critical anomalies (>50% deviation)
+critical_transformers = [
+    ValueFilter('status', ['BELOW_LOWER', 'ABOVE_UPPER']),
+    ColumnFilter('deviation_pct', min_value=50.0),
+    PercentageFormatter('deviation_pct')
+]
 
-platform_filter = ValueFilter(
-    column='platform',
-    values=['desktop', 'mobile'],  # Exclude tablet
-    mode='include'
-)
-
-post_filters = [platform_filter, AnomalyFilter(), formatter]
-
-# Example 3: Alert thresholds
-critical_filter = DeviationFilter(
-    min_deviation_pct=50.0,  # >50% = critical
-    keep_in_range=False
-)
-
-warning_filter = DeviationFilter(
-    min_deviation_pct=20.0,  # 20-50% = warning
-    keep_in_range=False
-)
+# Warning anomalies (20-50% deviation)
+warning_transformers = [
+    ValueFilter('status', ['BELOW_LOWER', 'ABOVE_UPPER']),
+    ColumnFilter('deviation_pct', min_value=20.0, max_value=50.0),
+    PercentageFormatter('deviation_pct')
+]
 '''
 
 print(customization_code)
 
 print("\n" + "=" * 70)
-print("This example shows the POWER of modular filters!")
-print("You can mix and match filters for any use case.")
+print("This example shows the POWER of general-purpose transformers!")
+print("Apply them at ANY stage of the pipeline for maximum flexibility.")
 print("=" * 70)

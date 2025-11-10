@@ -39,7 +39,7 @@ Complex patterns and best practices:
 
 | Example | Description |
 |---------|-------------|
-| `anomaly_with_filters.py` | Pre-filters and post-filters |
+| `anomaly_with_filters.py` | General-purpose transformers (filters & formatters) |
 | `custom_confidence_intervals.py` | Different quantile configurations |
 | `end_to_end_pipeline.py` | Complete data → forecast → anomaly → report |
 
@@ -95,18 +95,23 @@ workflow = AnomalyDetectionWorkflow(
 workflow.run()
 ```
 
-### Pattern 3: With Filters
+### Pattern 3: With Transformers
 ```python
-from chronomaly.infrastructure.filters.pre import CumulativeThresholdFilter
-from chronomaly.infrastructure.filters.post import AnomalyFilter, DeviationFormatter
+from chronomaly.infrastructure.transformers.filters import ValueFilter
+from chronomaly.infrastructure.transformers.formatters import ColumnFormatter
 
 workflow = AnomalyDetectionWorkflow(
     forecast_reader=forecast_reader,
     actual_reader=actual_reader,
     anomaly_detector=detector,
     data_writer=writer,
-    pre_filters=[CumulativeThresholdFilter(transformer, 0.95)],
-    post_filters=[AnomalyFilter(), DeviationFormatter()]
+    transformers={
+        'after_detection': [
+            ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER']),
+            ValueFilter('deviation_pct', min_value=10.0),
+            ColumnFormatter.percentage('deviation_pct', decimal_places=1)
+        ]
+    }
 )
 workflow.run()
 ```

@@ -80,7 +80,7 @@ print("=" * 70)
 print("Input:        /tmp/comprehensive_forecast.csv (7 metrics)")
 print("              /tmp/comprehensive_actual.csv")
 print("Transformers: ValueFilter (categorical + numeric filtering)")
-print("              PercentageFormatter (format as percentage)")
+print("              ColumnFormatter (format as percentage)")
 print("Output:       /tmp/filtered_anomalies.db")
 print()
 
@@ -99,7 +99,7 @@ from chronomaly.infrastructure.transformers import DataTransformer
 
 # Import general-purpose transformers
 from chronomaly.infrastructure.transformers.filters import ValueFilter
-from chronomaly.infrastructure.transformers.formatters import PercentageFormatter
+from chronomaly.infrastructure.transformers.formatters import ColumnFormatter
 
 # Configure readers
 forecast_reader = CSVDataReader('/tmp/comprehensive_forecast.csv')
@@ -140,7 +140,7 @@ deviation_filter = ValueFilter(
 )
 
 # Transformer 3: Format deviation as percentage string
-formatter = PercentageFormatter(
+formatter = ColumnFormatter.percentage(
     columns='deviation_pct',
     decimal_places=1
 )
@@ -193,7 +193,7 @@ Step 4: TRANSFORM (after_detection)
   Input:  7 detection results
   Filter: ValueFilter (status) → Keep only ABOVE_UPPER/BELOW_LOWER
   Filter: ValueFilter (deviation_pct) → Keep only >10% deviation
-  Format: PercentageFormatter → "16.7%" instead of 16.7
+  Format: ColumnFormatter.percentage() → "16.7%" instead of 16.7
   Output: 2 significant anomalies
 
 Step 5: WRITE
@@ -230,7 +230,7 @@ print("""
 
 2. TRANSFORMER TYPES
    ✓ Filters: ValueFilter (unified - supports categorical & numeric filtering)
-   ✓ Formatters: PercentageFormatter, ColumnFormatter, etc.
+   ✓ Formatters: ColumnFormatter (unified - custom functions or helpers like .percentage())
    ✓ Pivot: DataTransformer (wide ↔ long format)
 
 3. BENEFITS
@@ -264,7 +264,7 @@ workflow = AnomalyDetectionWorkflow(
             # Filter and format results
             ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER']),  # Categorical
             ValueFilter('deviation_pct', min_value=20.0),  # Numeric
-            PercentageFormatter('deviation_pct', decimal_places=2)
+            ColumnFormatter.percentage('deviation_pct', decimal_places=2)
         ]
     }
 )
@@ -273,7 +273,7 @@ workflow = AnomalyDetectionWorkflow(
 transformers_after_detection = [
     ValueFilter('platform', values=['desktop', 'mobile']),  # Categorical filtering
     ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER']),
-    PercentageFormatter('deviation_pct')
+    ColumnFormatter.percentage('deviation_pct')
 ]
 
 # Example 3: Multi-tier alerting
@@ -281,14 +281,14 @@ transformers_after_detection = [
 critical_transformers = [
     ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER']),
     ValueFilter('deviation_pct', min_value=50.0),  # Numeric filtering
-    PercentageFormatter('deviation_pct')
+    ColumnFormatter.percentage('deviation_pct')
 ]
 
 # Warning anomalies (20-50% deviation)
 warning_transformers = [
     ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER']),
     ValueFilter('deviation_pct', min_value=20.0, max_value=50.0),  # Numeric range
-    PercentageFormatter('deviation_pct')
+    ColumnFormatter.percentage('deviation_pct')
 ]
 '''
 

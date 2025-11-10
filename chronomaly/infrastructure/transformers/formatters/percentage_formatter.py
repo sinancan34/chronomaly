@@ -1,17 +1,32 @@
 """
-Percentage formatter - formats numeric columns as percentage strings.
+Percentage formatter - DEPRECATED: Use ColumnFormatter.percentage() instead.
+
+This module is kept for backward compatibility.
+PercentageFormatter is now an alias to ColumnFormatter.percentage().
 """
 
-import pandas as pd
+import warnings
 from typing import List, Union
-from .base import DataFrameFormatter
+from .column_formatter import ColumnFormatter
 
 
-class PercentageFormatter(DataFrameFormatter):
+class PercentageFormatter(ColumnFormatter):
     """
+    DEPRECATED: Use ColumnFormatter.percentage() instead.
+
     Format numeric columns as percentage strings.
 
-    This is a GENERAL formatter for any DataFrame.
+    This class is now an alias to ColumnFormatter for backward compatibility.
+    New code should use ColumnFormatter.percentage() directly:
+
+        # Old way (still works):
+        formatter = PercentageFormatter('deviation_pct', decimal_places=1)
+
+        # New way (recommended):
+        formatter = ColumnFormatter.percentage('deviation_pct', decimal_places=1)
+
+        # Or with custom function:
+        formatter = ColumnFormatter({'deviation_pct': lambda x: f"{x:.1f}%"})
 
     Args:
         columns: Column name or list of column names to format
@@ -39,40 +54,20 @@ class PercentageFormatter(DataFrameFormatter):
         decimal_places: int = 1,
         multiply_by_100: bool = False
     ):
-        if decimal_places < 0:
-            raise ValueError(f"decimal_places must be non-negative, got {decimal_places}")
+        warnings.warn(
+            "PercentageFormatter is deprecated. Use ColumnFormatter.percentage() instead: "
+            "ColumnFormatter.percentage('column', decimal_places=X)",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
-        self.columns = [columns] if isinstance(columns, str) else columns
-        self.decimal_places = decimal_places
-        self.multiply_by_100 = multiply_by_100
+        # Use parent class percentage helper
+        formatter = ColumnFormatter.percentage(
+            columns=columns,
+            decimal_places=decimal_places,
+            multiply_by_100=multiply_by_100
+        )
 
-    def format(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Format columns as percentage strings.
-
-        Args:
-            df: Input DataFrame
-
-        Returns:
-            pd.DataFrame: Formatted DataFrame
-        """
-        if df.empty:
-            return df.copy()
-
-        result = df.copy()
-
-        for column in self.columns:
-            if column in result.columns:
-                values = result[column]
-
-                # Multiply by 100 if needed
-                if self.multiply_by_100:
-                    values = values * 100
-
-                # Format as string with percentage sign
-                result[column] = (
-                    values.round(self.decimal_places)
-                    .astype(str) + '%'
-                )
-
-        return result
+        # Initialize with the formatters from the helper
+        # Call ColumnFormatter.__init__ directly with formatters dict
+        ColumnFormatter.__init__(self, formatter.formatters)

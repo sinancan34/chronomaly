@@ -6,7 +6,7 @@ import pandas as pd
 import sqlite3
 import os
 import re
-from typing import Optional
+from typing import Optional, Dict, List, Callable
 from ..base import DataWriter
 
 
@@ -19,6 +19,8 @@ class SQLiteDataWriter(DataWriter):
         table_name: Name of the table to write to
         if_exists: How to behave if table exists {'fail', 'replace', 'append'}
                    (default: 'replace')
+        transformers: Optional dict of transformer lists to apply before writing data
+                     Example: {'after': [Filter1(), Filter2()]}
         **kwargs: Additional arguments to pass to pandas.to_sql()
 
     Security Notes:
@@ -32,6 +34,7 @@ class SQLiteDataWriter(DataWriter):
         database_path: str,
         table_name: str,
         if_exists: str = 'replace',
+        transformers: Optional[Dict[str, List[Callable]]] = None,
         **kwargs
     ):
         # BUG-20 FIX: Validate database path to prevent path traversal
@@ -85,7 +88,36 @@ class SQLiteDataWriter(DataWriter):
             )
 
         self.if_exists = if_exists
+        self.transformers = transformers or {}
         self.to_sql_kwargs = kwargs
+
+    def _apply_transformers(self, df: pd.DataFrame, stage: str) -> pd.DataFrame:
+        """
+        Apply transformers for a specific stage.
+
+        Args:
+            df: DataFrame to transform
+            stage: Stage name ('after')
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame
+        """
+        if stage not in self.transformers:
+            return df
+
+        result = df
+        for transformer in self.transformers[stage]:
+            # Support both .filter() and .format() methods
+            if hasattr(transformer, 'filter'):
+                result = transformer.filter(result)
+            elif hasattr(transformer, 'format'):
+                result = transformer.format(result)
+            elif callable(transformer):
+                result = transformer(result)
+            else:
+                raise TypeError(f"Transformer must have .filter(), .format() method or be callable")
+
+        return result
 
     def write(self, dataframe: pd.DataFrame) -> None:
         """
@@ -98,6 +130,9 @@ class SQLiteDataWriter(DataWriter):
             ValueError: If dataframe is empty or invalid
             RuntimeError: If database write operation fails
         """
+        # Apply transformers before writing data
+        dataframe = self._apply_transformers(dataframe, 'after')
+
         # BUG-44 FIX: Validate dataframe type
         if not isinstance(dataframe, pd.DataFrame):
             raise TypeError(

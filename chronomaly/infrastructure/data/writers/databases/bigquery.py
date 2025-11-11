@@ -3,7 +3,7 @@ BigQuery data writer implementation.
 """
 
 import pandas as pd
-from typing import Optional
+from typing import Optional, Dict, List, Callable
 from google.cloud import bigquery
 from ..base import DataWriter
 
@@ -21,6 +21,8 @@ class BigQueryDataWriter(DataWriter):
                            (default: CREATE_IF_NEEDED)
         write_disposition: Specifies behavior if table exists
                           (default: WRITE_TRUNCATE - replaces existing data)
+        transformers: Optional dict of transformer lists to apply before writing data
+                     Example: {'after': [Filter1(), Filter2()]}
     """
 
     # Valid disposition values
@@ -34,7 +36,8 @@ class BigQueryDataWriter(DataWriter):
         dataset: str = None,
         table: str = None,
         create_disposition: str = 'CREATE_IF_NEEDED',
-        write_disposition: str = 'WRITE_TRUNCATE'
+        write_disposition: str = 'WRITE_TRUNCATE',
+        transformers: Optional[Dict[str, List[Callable]]] = None
     ):
         if dataset is None:
             raise ValueError("dataset parameter is required")
@@ -60,6 +63,7 @@ class BigQueryDataWriter(DataWriter):
         self.create_disposition = create_disposition
         self.write_disposition = write_disposition
         self._client = None
+        self.transformers = transformers or {}
 
     def _get_client(self) -> bigquery.Client:
         """
@@ -78,6 +82,34 @@ class BigQueryDataWriter(DataWriter):
                 self._client = bigquery.Client(project=self.project)
         return self._client
 
+    def _apply_transformers(self, df: pd.DataFrame, stage: str) -> pd.DataFrame:
+        """
+        Apply transformers for a specific stage.
+
+        Args:
+            df: DataFrame to transform
+            stage: Stage name ('after')
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame
+        """
+        if stage not in self.transformers:
+            return df
+
+        result = df
+        for transformer in self.transformers[stage]:
+            # Support both .filter() and .format() methods
+            if hasattr(transformer, 'filter'):
+                result = transformer.filter(result)
+            elif hasattr(transformer, 'format'):
+                result = transformer.format(result)
+            elif callable(transformer):
+                result = transformer(result)
+            else:
+                raise TypeError(f"Transformer must have .filter(), .format() method or be callable")
+
+        return result
+
     def write(self, dataframe: pd.DataFrame) -> None:
         """
         Write forecast results to BigQuery table.
@@ -88,6 +120,9 @@ class BigQueryDataWriter(DataWriter):
         Raises:
             RuntimeError: If the BigQuery write job fails
         """
+        # Apply transformers before writing data
+        dataframe = self._apply_transformers(dataframe, 'after')
+
         client = self._get_client()
 
         # Construct table ID (modern API - replaces deprecated dataset().table())

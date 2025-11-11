@@ -5,7 +5,7 @@ BigQuery data reader implementation.
 import pandas as pd
 import os
 import re
-from typing import Optional
+from typing import Optional, Dict, List, Callable
 from google.cloud import bigquery
 from google.oauth2 import service_account
 from ..base import DataReader
@@ -20,6 +20,8 @@ class BigQueryDataReader(DataReader):
         project: GCP project ID
         query: SQL query to execute
         date_column: Name of the date column (will be parsed as datetime)
+        transformers: Optional dict of transformer lists to apply after loading data
+                     Example: {'after': [Filter1(), Filter2()]}
 
     Security Notes:
         - The query parameter is executed directly on BigQuery. Ensure queries
@@ -33,7 +35,8 @@ class BigQueryDataReader(DataReader):
         service_account_file: str,
         project: str,
         query: str,
-        date_column: Optional[str] = None
+        date_column: Optional[str] = None,
+        transformers: Optional[Dict[str, List[Callable]]] = None
     ):
         # BUG-25 FIX: Validate service account file path
         if not service_account_file:
@@ -71,6 +74,7 @@ class BigQueryDataReader(DataReader):
 
         self.date_column = date_column
         self._client = None
+        self.transformers = transformers or {}
 
     def _validate_query(self, query: str) -> None:
         """
@@ -140,6 +144,34 @@ class BigQueryDataReader(DataReader):
 
         return self._client
 
+    def _apply_transformers(self, df: pd.DataFrame, stage: str) -> pd.DataFrame:
+        """
+        Apply transformers for a specific stage.
+
+        Args:
+            df: DataFrame to transform
+            stage: Stage name ('after')
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame
+        """
+        if stage not in self.transformers:
+            return df
+
+        result = df
+        for transformer in self.transformers[stage]:
+            # Support both .filter() and .format() methods
+            if hasattr(transformer, 'filter'):
+                result = transformer.filter(result)
+            elif hasattr(transformer, 'format'):
+                result = transformer.format(result)
+            elif callable(transformer):
+                result = transformer(result)
+            else:
+                raise TypeError(f"Transformer must have .filter(), .format() method or be callable")
+
+        return result
+
     def load(self) -> pd.DataFrame:
         """
         Load data from BigQuery using the provided query.
@@ -191,6 +223,9 @@ class BigQueryDataReader(DataReader):
                 raise ValueError(
                     f"Failed to parse date_column '{self.date_column}' as datetime: {str(e)}"
                 ) from e
+
+        # Apply transformers after loading data
+        df = self._apply_transformers(df, 'after')
 
         return df
 

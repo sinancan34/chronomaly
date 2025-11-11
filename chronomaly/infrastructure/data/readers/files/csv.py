@@ -6,7 +6,7 @@ import pandas as pd
 import os
 from typing import Optional, Dict, Any, List, Callable
 from ..base import DataReader
-from ....shared import TransformableMixin
+from chronomaly.shared import TransformableMixin
 
 
 class CSVDataReader(DataReader, TransformableMixin):

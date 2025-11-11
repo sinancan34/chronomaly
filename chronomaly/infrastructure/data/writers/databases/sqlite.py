@@ -8,7 +8,7 @@ import os
 import re
 from typing import Optional, Dict, List, Callable
 from ..base import DataWriter
-from .....shared import TransformableMixin
+from chronomaly.shared import TransformableMixin
 
 
 class SQLiteDataWriter(DataWriter, TransformableMixin):

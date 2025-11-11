@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from typing import Optional, List, Dict, Callable
 from .base import AnomalyDetector
-from ...shared import TransformableMixin
+from chronomaly.shared import TransformableMixin
 
 
 class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):

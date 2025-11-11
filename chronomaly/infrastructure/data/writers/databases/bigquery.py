@@ -6,7 +6,7 @@ import pandas as pd
 from typing import Optional, Dict, List, Callable
 from google.cloud import bigquery
 from ..base import DataWriter
-from .....shared import TransformableMixin
+from chronomaly.shared import TransformableMixin
 
 
 class BigQueryDataWriter(DataWriter, TransformableMixin):

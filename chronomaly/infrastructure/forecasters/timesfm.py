@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from typing import Optional, Dict, Any, List, Callable
 from .base import Forecaster
-from ...shared import TransformableMixin
+from chronomaly.shared import TransformableMixin
 
 try:
     import timesfm

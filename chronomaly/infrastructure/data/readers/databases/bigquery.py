@@ -9,7 +9,7 @@ from typing import Optional, Dict, List, Callable
 from google.cloud import bigquery
 from google.oauth2 import service_account
 from ..base import DataReader
-from ....shared import TransformableMixin
+from chronomaly.shared import TransformableMixin
 
 
 class BigQueryDataReader(DataReader, TransformableMixin):

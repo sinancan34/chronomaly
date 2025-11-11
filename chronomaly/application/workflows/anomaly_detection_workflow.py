@@ -3,7 +3,7 @@ Anomaly detection workflow orchestrator.
 """
 
 import pandas as pd
-from typing import Optional, List, Dict, Callable
+from typing import Optional
 from ...infrastructure.data.readers.base import DataReader
 from ...infrastructure.anomaly_detectors.base import AnomalyDetector
 from ...infrastructure.data.writers.base import DataWriter
@@ -13,55 +13,46 @@ class AnomalyDetectionWorkflow:
     """
     Main orchestrator class for the anomaly detection workflow.
 
-    This workflow supports flexible DataFrame transformers at ANY stage:
-    1. Load forecast data
-    2. Apply transformers (after_forecast_read) - Optional
-    3. Load actual data
-    4. Apply transformers (after_actual_read) - Optional
-    5. Detect anomalies
-    6. Apply transformers (after_detection) - Optional
-    7. Write results
+    This workflow orchestrates the anomaly detection process:
+    1. Load forecast data (via forecast_reader)
+    2. Load actual data (via actual_reader)
+    3. Detect anomalies (via anomaly_detector)
+    4. Write results (via data_writer)
+
+    Transformations should be configured at the component level:
+    - forecast_reader: Use transformers={'after': [...]} for post-load transformations
+    - actual_reader: Use transformers={'after': [...]} for post-load transformations
+    - data_writer: Use transformers={'before': [...]} for pre-write transformations
 
     Args:
         forecast_reader: Data reader for forecast data
         actual_reader: Data reader for actual data
         anomaly_detector: Anomaly detector instance
         data_writer: Data writer for results (optional, if not provided results won't be written)
-        transformers: Dict of transformer lists for different stages
 
-    Transformer Stages:
-        'after_forecast_read': Applied after loading forecast data
-        'after_actual_read': Applied after loading actual data
-        'after_detection': Applied after anomaly detection
-        'before_write': Applied just before writing (rarely needed)
+    Example:
+        from chronomaly.infrastructure.transformers.filters import ValueFilter
+        from chronomaly.infrastructure.transformers.formatters import ColumnFormatter
 
-    Example - Simple (backward compatible):
-        workflow = AnomalyDetectionWorkflow(
-            forecast_reader=reader,
-            actual_reader=reader,
-            anomaly_detector=detector,
-            data_writer=writer
+        # Configure transformations at component level
+        forecast_reader = BigQueryDataReader(
+            ...,
+            transformers={'after': [ValueFilter('confidence', min_value=0.8)]}
         )
 
-    Example - With transformers:
-        from chronomaly.infrastructure.transformers.filters import (
-            CumulativeThresholdFilter, ValueFilter
-        )
-        from chronomaly.infrastructure.transformers.formatters import (
-            PercentageFormatter
+        data_writer = BigQueryDataWriter(
+            ...,
+            transformers={'before': [
+                ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER']),
+                ColumnFormatter({'deviation_pct': lambda x: f"{x:.1f}%"})
+            ]}
         )
 
         workflow = AnomalyDetectionWorkflow(
-            forecast_reader=reader,
-            actual_reader=reader,
+            forecast_reader=forecast_reader,
+            actual_reader=actual_reader,
             anomaly_detector=detector,
-            data_writer=writer,
-            transformers={
-                'after_detection': [
-                    ValueFilter('status', ['BELOW_LOWER', 'ABOVE_UPPER']),
-                    PercentageFormatter('deviation_pct')
-                ]
-            }
+            data_writer=data_writer
         )
     """
 
@@ -70,61 +61,24 @@ class AnomalyDetectionWorkflow:
         forecast_reader: DataReader,
         actual_reader: DataReader,
         anomaly_detector: AnomalyDetector,
-        data_writer: Optional[DataWriter] = None,
-        transformers: Optional[Dict[str, List[Callable]]] = None
+        data_writer: Optional[DataWriter] = None
     ):
         self.forecast_reader = forecast_reader
         self.actual_reader = actual_reader
         self.anomaly_detector = anomaly_detector
         self.data_writer = data_writer
-        self.transformers = transformers or {}
-
-        # Validate transformer stages
-        valid_stages = {'after_forecast_read', 'after_actual_read', 'after_detection', 'before_write'}
-        for stage in self.transformers.keys():
-            if stage not in valid_stages:
-                raise ValueError(f"Invalid transformer stage: {stage}. Must be one of {valid_stages}")
-
-    def _apply_transformers(self, df: pd.DataFrame, stage: str) -> pd.DataFrame:
-        """
-        Apply transformers for a specific stage.
-
-        Args:
-            df: DataFrame to transform
-            stage: Stage name ('after_forecast_read', 'after_actual_read', etc.)
-
-        Returns:
-            pd.DataFrame: Transformed DataFrame
-        """
-        if stage not in self.transformers:
-            return df
-
-        result = df
-        for transformer in self.transformers[stage]:
-            # Support both .filter() and .format() methods
-            if hasattr(transformer, 'filter'):
-                result = transformer.filter(result)
-            elif hasattr(transformer, 'format'):
-                result = transformer.format(result)
-            elif callable(transformer):
-                result = transformer(result)
-            else:
-                raise TypeError(f"Transformer must have .filter(), .format() method or be callable")
-
-        return result
 
     def _execute_detection(self) -> pd.DataFrame:
         """
-        Execute anomaly detection with flexible transformer pipeline.
+        Execute anomaly detection workflow.
 
         Pipeline:
         1. Load forecast data
-        2. Apply transformers (after_forecast_read)
-        3. Load actual data
-        4. Apply transformers (after_actual_read)
-        5. Detect anomalies
-        6. Apply transformers (after_detection)
-        7. Return results
+        2. Load actual data
+        3. Detect anomalies
+        4. Return results
+
+        Note: Transformations are handled by individual components (readers/writers).
 
         Returns:
             pd.DataFrame: Anomaly detection results
@@ -137,18 +91,12 @@ class AnomalyDetectionWorkflow:
         if forecast_df is None or forecast_df.empty:
             raise ValueError("Forecast reader returned empty dataset.")
 
-        # Step 2: Apply forecast transformers
-        forecast_df = self._apply_transformers(forecast_df, 'after_forecast_read')
-
-        # Step 3: Load actual data
+        # Step 2: Load actual data
         actual_df = self.actual_reader.load()
         if actual_df is None or actual_df.empty:
             raise ValueError("Actual reader returned empty dataset.")
 
-        # Step 4: Apply actual transformers
-        actual_df = self._apply_transformers(actual_df, 'after_actual_read')
-
-        # Step 5: Detect anomalies
+        # Step 3: Detect anomalies
         anomaly_df = self.anomaly_detector.detect(
             forecast_df=forecast_df,
             actual_df=actual_df
@@ -156,12 +104,6 @@ class AnomalyDetectionWorkflow:
 
         if anomaly_df is None or anomaly_df.empty:
             raise ValueError("Anomaly detector returned empty results.")
-
-        # Step 6: Apply detection result transformers
-        anomaly_df = self._apply_transformers(anomaly_df, 'after_detection')
-
-        # Step 7: Apply before-write transformers (optional)
-        anomaly_df = self._apply_transformers(anomaly_df, 'before_write')
 
         return anomaly_df
 

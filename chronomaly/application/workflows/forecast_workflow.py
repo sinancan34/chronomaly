@@ -21,11 +21,45 @@ class ForecastWorkflow:
     3. Generate forecast
     4. Write results to output
 
+    Data transformations (filtering, formatting) should be configured at the component level:
+    - data_reader: Use transformers={'after': [...]} for post-load transformations
+    - forecaster: Use transformers={'before': [...], 'after': [...]} for input/output transformations
+    - data_writer: Use transformers={'before': [...]} for pre-write transformations
+
     Args:
         data_reader: Data reader instance (CSV, SQLite, BigQuery, etc.)
         forecaster: Forecaster instance (TimesFM, etc.)
         data_writer: Data writer instance (SQLite, BigQuery, etc.)
-        transformer: Optional data transformer for pivot operations
+        transformer: Optional PivotTransformer for pivot operations (converts long to wide format)
+
+    Example:
+        from chronomaly.infrastructure.transformers.filters import ValueFilter
+
+        # Configure transformations at component level
+        reader = BigQueryDataReader(
+            ...,
+            transformers={'after': [ValueFilter('outliers', max_value=1000)]}
+        )
+
+        forecaster = TimesFMForecaster(
+            ...,
+            transformers={
+                'before': [ValueFilter('missing', mode='exclude')],
+                'after': [ValueFilter('confidence', min_value=0.8)]
+            }
+        )
+
+        writer = SQLiteDataWriter(
+            ...,
+            transformers={'before': [ColumnFormatter({...})]}
+        )
+
+        workflow = ForecastWorkflow(
+            data_reader=reader,
+            forecaster=forecaster,
+            data_writer=writer,
+            transformer=pivot_transformer  # For pivot operations only
+        )
     """
 
     def __init__(

@@ -82,8 +82,6 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
 
         if self.dimension_names:
             result_df = self._split_metric_to_dimensions(result_df)
-            if 'metric' in result_df.columns:
-                result_df = result_df.drop(columns=['metric'])
 
         return result_df
 

@@ -238,7 +238,7 @@ from chronomaly.infrastructure.data.writers.databases import BigQueryDataWriter
 from chronomaly.infrastructure.anomaly_detectors import ForecastActualAnomalyDetector
 from chronomaly.infrastructure.transformers import PivotTransformer
 
-# Forecast data reader
+# Forecast data reader (reads forecast results from previous workflow run)
 forecast_reader = BigQueryDataReader(
     service_account_file="path/to/service-account.json",
     project="my-project",
@@ -246,7 +246,8 @@ forecast_reader = BigQueryDataReader(
     date_column="date"
 )
 
-# Actual data reader
+# Actual data reader (reads real/observed values to compare against forecasts)
+# Note: Typically uses a different data source than forecast_reader
 actual_reader = BigQueryDataReader(
     service_account_file="path/to/service-account.json",
     project="my-project",

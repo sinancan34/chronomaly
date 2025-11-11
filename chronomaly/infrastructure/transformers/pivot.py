@@ -29,6 +29,21 @@ class PivotTransformer:
         self.columns = columns
         self.values = values
 
+    def __call__(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        """
+        Make PivotTransformer callable for use in transformers list.
+
+        This allows using PivotTransformer in the transformers parameter:
+        transformers={'after': [PivotTransformer(...)]}
+
+        Args:
+            dataframe: Input pandas DataFrame
+
+        Returns:
+            pd.DataFrame: Pivoted dataframe
+        """
+        return self.pivot_table(dataframe)
+
     def pivot_table(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         """
         Transform dataframe into pivot table format.

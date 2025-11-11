@@ -212,3 +212,6 @@ __marimo__/
 # GitHub Spec Kit
 .specify/
 specs/
+
+# macOS
+.DS_Store

@@ -98,47 +98,6 @@ pip install -e ".[all]"
 
 ---
 
-## Quick Start
-
-Here's a simple forecasting example:
-
-```python
-import pandas as pd
-from chronomaly.application.workflows import ForecastWorkflow
-from chronomaly.infrastructure.data.readers.files import CSVDataReader
-from chronomaly.infrastructure.data.writers.databases import SQLiteDataWriter
-from chronomaly.infrastructure.forecasters import TimesFMForecaster
-
-# Create data reader and writer
-reader = CSVDataReader(
-    file_path="data/historical_data.csv",
-    date_column="date"
-)
-writer = SQLiteDataWriter(
-    db_path="output/forecasts.db",
-    table_name="forecasts"
-)
-
-# Create forecaster
-forecaster = TimesFMForecaster(
-    model_name='google/timesfm-2.5-200m-pytorch',
-    frequency='D'  # Daily forecast
-)
-
-# Run the workflow
-workflow = ForecastWorkflow(
-    data_reader=reader,
-    forecaster=forecaster,
-    data_writer=writer
-)
-
-# Generate 30-day forecast
-forecast_df = workflow.run(horizon=30)
-print(forecast_df.head())
-```
-
----
-
 ## Usage
 
 ### Forecast Workflow

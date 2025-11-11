@@ -1,104 +1,105 @@
 # Chronomaly
 
-**Chronomaly**, Google TimesFM kullanarak zaman serisi tahmini ve anomali tespiti için esnek ve genişletilebilir bir Python kütüphanesidir.
+**Chronomaly** is a flexible and extensible Python library for time series forecasting and anomaly detection using Google TimesFM.
 
-## İçindekiler
+## Table of Contents
 
-- [Problem / Motivasyon](#problem--motivasyon)
-- [Özellikler](#özellikler)
-- [Kurulum](#kurulum)
-- [Hızlı Başlangıç](#hızlı-başlangıç)
-- [Kullanım](#kullanım)
-  - [Forecast (Tahmin) Workflow](#forecast-tahmin-workflow)
-  - [Anomali Tespiti Workflow](#anomali-tespiti-workflow)
-  - [Veri Kaynakları](#veri-kaynakları)
-- [Mimari](#mimari)
-- [Katkıda Bulunma](#katkıda-bulunma)
-- [Lisans](#lisans)
-- [İletişim / Destek](#i̇letişim--destek)
-
----
-
-## Problem / Motivasyon
-
-Zaman serisi tahmini ve anomali tespiti, modern veri analitiğinde kritik bir ihtiyaçtır. Ancak:
-
-- **Karmaşıklık**: Güçlü tahmin modelleri (örneğin Google TimesFM) kurmak ve yönetmek teknik olarak zorlayıcıdır
-- **Veri Entegrasyonu**: Farklı kaynaklardan (BigQuery, SQLite, CSV, API'ler) veri okumak ve yazmak için tekrarlayan kod gerekir
-- **Esneklik Eksikliği**: Çoğu çözüm, veri dönüşümleri, filtreleme ve formatlama için yeterince esnek değildir
-- **Anomali Tespiti**: Tahmin edilen değerlerle gerçek değerleri karşılaştırarak anomalileri tespit etmek manuel bir süreçtir
-
-**Chronomaly**, bu sorunları çözmek için tasarlanmıştır:
-
-- Google'ın son teknoloji TimesFM modelini kullanarak güçlü tahminler sağlar
-- Çoklu veri kaynakları için hazır reader/writer implementasyonları sunar
-- Pipeline tabanlı mimari ile esnek veri dönüşümleri destekler
-- Forecast ve actual verileri karşılaştırarak otomatik anomali tespiti yapar
-- Modüler yapısı sayesinde kolayca genişletilebilir
+- [Problem / Motivation](#problem--motivation)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+  - [Forecast Workflow](#forecast-workflow)
+  - [Anomaly Detection Workflow](#anomaly-detection-workflow)
+  - [Data Sources](#data-sources)
+- [Architecture](#architecture)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact / Support](#contact--support)
+- [Roadmap](#roadmap)
 
 ---
 
-## Özellikler
+## Problem / Motivation
 
-- **Google TimesFM Entegrasyonu**: Son teknoloji zaman serisi tahmin modeli desteği
-- **Çoklu Veri Kaynakları**:
-  - BigQuery, SQLite, CSV okuma/yazma
-  - API reader desteği (genişletilebilir)
-- **Esnek Workflow Orchestration**:
-  - ForecastWorkflow: Veri okuma, dönüştürme, tahmin, yazma
-  - AnomalyDetectionWorkflow: Forecast vs actual karşılaştırma
-- **Veri Dönüşümleri**:
-  - PivotTransformer: Verileri pivot ederek zaman serisi formatına çevirir
-  - Filters: Değer filtreleme, cumulative threshold filtreleme
-  - Formatters: Yüzde formatlama, sütun formatlama
-- **Anomali Tespiti**: Quantile tabanlı anomali tespiti (BELOW_LOWER, IN_RANGE, ABOVE_UPPER)
-- **Modüler Mimari**: Her bileşen bağımsız kullanılabilir ve kolayca genişletilebilir
-- **Type Safety**: Type hints ile güvenli kod yazımı
+Time series forecasting and anomaly detection are critical needs in modern data analytics. However:
+
+- **Complexity**: Setting up and managing powerful forecasting models (e.g., Google TimesFM) is technically challenging
+- **Data Integration**: Reading from and writing to different sources (BigQuery, SQLite, CSV, APIs) requires repetitive code
+- **Lack of Flexibility**: Most solutions are not flexible enough for data transformations, filtering, and formatting
+- **Anomaly Detection**: Comparing forecasted values with actual values to detect anomalies is a manual process
+
+**Chronomaly** is designed to solve these problems:
+
+- Provides powerful forecasts using Google's state-of-the-art TimesFM model
+- Offers ready-to-use reader/writer implementations for multiple data sources
+- Supports flexible data transformations with a pipeline-based architecture
+- Automatically detects anomalies by comparing forecast and actual data
+- Easily extensible thanks to its modular design
 
 ---
 
-## Kurulum
+## Features
 
-### Ön Koşullar
+- **Google TimesFM Integration**: State-of-the-art time series forecasting model support
+- **Multiple Data Sources**:
+  - BigQuery, SQLite, CSV read/write
+  - API reader support (extensible)
+- **Flexible Workflow Orchestration**:
+  - ForecastWorkflow: Data reading, transformation, forecasting, writing
+  - AnomalyDetectionWorkflow: Forecast vs actual comparison
+- **Data Transformations**:
+  - PivotTransformer: Pivots data into time series format
+  - Filters: Value filtering, cumulative threshold filtering
+  - Formatters: Percentage formatting, column formatting
+- **Anomaly Detection**: Quantile-based anomaly detection (BELOW_LOWER, IN_RANGE, ABOVE_UPPER)
+- **Modular Architecture**: Each component can be used independently and is easily extensible
+- **Type Safety**: Safe code writing with type hints
 
-- Python 3.11 veya üzeri
-- pip paket yöneticisi
+---
 
-### Temel Kurulum
+## Installation
+
+### Prerequisites
+
+- Python 3.11 or higher
+- pip package manager
+
+### Basic Installation
 
 ```bash
-# Depoyu klonlayın
+# Clone the repository
 git clone https://github.com/insightlytics/chronomaly.git
 cd chronomaly
 
-# Temel bağımlılıkları yükleyin
+# Install core dependencies
 pip install -r requirements.txt
 
-# TimesFM'i GitHub'dan yükleyin (zorunlu)
+# Install TimesFM from GitHub (required)
 pip install git+https://github.com/google-research/timesfm.git
 
-# Chronomaly'yi editable mode'da yükleyin
+# Install Chronomaly in editable mode
 pip install -e .
 ```
 
-### Opsiyonel Bağımlılıklar
+### Optional Dependencies
 
 ```bash
-# BigQuery desteği için
+# For BigQuery support
 pip install -e ".[bigquery]"
 
-# Geliştirme araçları için (pytest, black, flake8)
+# For development tools (pytest, black, flake8)
 pip install -e ".[dev]"
 
-# Tüm opsiyonel bağımlılıklar
+# All optional dependencies
 pip install -e ".[all]"
 ```
 
 ---
 
-## Hızlı Başlangıç
+## Quick Start
 
-İşte basit bir tahmin örneği:
+Here's a simple forecasting example:
 
 ```python
 import pandas as pd
@@ -107,40 +108,40 @@ from chronomaly.infrastructure.data.readers.files import CSVDataReader
 from chronomaly.infrastructure.data.writers.files import CSVDataWriter
 from chronomaly.infrastructure.forecasters import TimesFMForecaster
 
-# Veri okuyucu ve yazıcı oluştur
+# Create data reader and writer
 reader = CSVDataReader(
     file_path="data/historical_data.csv",
     date_column="date"
 )
 writer = CSVDataWriter(file_path="output/forecast.csv")
 
-# Forecaster oluştur
+# Create forecaster
 forecaster = TimesFMForecaster(
     model_name='google/timesfm-2.5-200m-pytorch',
-    frequency='D'  # Günlük tahmin
+    frequency='D'  # Daily forecast
 )
 
-# Workflow'u çalıştır
+# Run the workflow
 workflow = ForecastWorkflow(
     data_reader=reader,
     forecaster=forecaster,
     data_writer=writer
 )
 
-# 30 günlük tahmin yap
+# Generate 30-day forecast
 forecast_df = workflow.run(horizon=30)
 print(forecast_df.head())
 ```
 
 ---
 
-## Kullanım
+## Usage
 
-### Forecast (Tahmin) Workflow
+### Forecast Workflow
 
-ForecastWorkflow, veri okuma, dönüştürme, tahmin oluşturma ve yazma işlemlerini orkestre eder.
+ForecastWorkflow orchestrates data reading, transformation, forecast generation, and writing.
 
-#### Örnek: CSV'den Okuma ve Pivot Transformation
+#### Example: Reading from CSV and Pivot Transformation
 
 ```python
 from chronomaly.application.workflows import ForecastWorkflow
@@ -149,23 +150,23 @@ from chronomaly.infrastructure.data.writers.databases import SQLiteDataWriter
 from chronomaly.infrastructure.forecasters import TimesFMForecaster
 from chronomaly.infrastructure.transformers import PivotTransformer
 
-# CSV okuyucu
+# CSV reader
 reader = CSVDataReader(
     file_path="data/raw_data.csv",
     date_column="date"
 )
 
-# SQLite yazıcı
+# SQLite writer
 writer = SQLiteDataWriter(
     db_path="output/forecasts.db",
     table_name="forecasts"
 )
 
-# Pivot transformer (platformu ve kanalı birleştir)
+# Pivot transformer (combine platform and channel)
 transformer = PivotTransformer(
     date_column='date',
-    columns=['platform', 'channel'],  # Boyutlar
-    values='sessions'  # Değer sütunu
+    columns=['platform', 'channel'],  # Dimensions
+    values='sessions'  # Value column
 )
 
 # Forecaster
@@ -179,17 +180,17 @@ workflow = ForecastWorkflow(
     transformer=transformer
 )
 
-# 7 günlük tahmin
+# 7-day forecast
 forecast_df = workflow.run(horizon=7)
 ```
 
-#### Örnek: BigQuery'den Okuma
+#### Example: Reading from BigQuery
 
 ```python
 from chronomaly.infrastructure.data.readers.databases import BigQueryDataReader
 from chronomaly.infrastructure.data.writers.databases import BigQueryDataWriter
 
-# BigQuery okuyucu
+# BigQuery reader
 reader = BigQueryDataReader(
     service_account_file="path/to/service-account.json",
     project="my-gcp-project",
@@ -201,7 +202,7 @@ reader = BigQueryDataReader(
     date_column="date"
 )
 
-# BigQuery yazıcı
+# BigQuery writer
 writer = BigQueryDataWriter(
     service_account_file="path/to/service-account.json",
     project="my-gcp-project",
@@ -210,7 +211,7 @@ writer = BigQueryDataWriter(
     write_disposition="WRITE_APPEND"
 )
 
-# Workflow oluştur ve çalıştır
+# Create and run workflow
 workflow = ForecastWorkflow(
     data_reader=reader,
     forecaster=forecaster,
@@ -220,11 +221,11 @@ workflow = ForecastWorkflow(
 forecast_df = workflow.run(horizon=14)
 ```
 
-### Anomali Tespiti Workflow
+### Anomaly Detection Workflow
 
-AnomalyDetectionWorkflow, tahmin edilen değerlerle gerçek değerleri karşılaştırarak anomalileri tespit eder.
+AnomalyDetectionWorkflow detects anomalies by comparing forecasted values with actual values.
 
-#### Örnek: Temel Anomali Tespiti
+#### Example: Basic Anomaly Detection
 
 ```python
 from chronomaly.application.workflows import AnomalyDetectionWorkflow
@@ -233,7 +234,7 @@ from chronomaly.infrastructure.data.writers.databases import BigQueryDataWriter
 from chronomaly.infrastructure.anomaly_detectors import ForecastActualAnomalyDetector
 from chronomaly.infrastructure.transformers import PivotTransformer
 
-# Forecast verileri okuyucu
+# Forecast data reader
 forecast_reader = BigQueryDataReader(
     service_account_file="path/to/service-account.json",
     project="my-project",
@@ -241,7 +242,7 @@ forecast_reader = BigQueryDataReader(
     date_column="date"
 )
 
-# Actual verileri okuyucu
+# Actual data reader
 actual_reader = BigQueryDataReader(
     service_account_file="path/to/service-account.json",
     project="my-project",
@@ -253,7 +254,7 @@ actual_reader = BigQueryDataReader(
     date_column="date"
 )
 
-# Anomali yazıcı
+# Anomaly writer
 anomaly_writer = BigQueryDataWriter(
     service_account_file="path/to/service-account.json",
     project="my-project",
@@ -261,18 +262,18 @@ anomaly_writer = BigQueryDataWriter(
     table="anomalies"
 )
 
-# Actual veriler için pivot transformer
+# Pivot transformer for actual data
 transformer = PivotTransformer(
     date_column='date',
     columns=['platform', 'channel'],
     values='sessions'
 )
 
-# Anomali detector
+# Anomaly detector
 detector = ForecastActualAnomalyDetector(
     transformer=transformer,
     date_column='date',
-    dimension_names=['platform', 'channel'],  # Metric'i bu boyutlara ayır
+    dimension_names=['platform', 'channel'],  # Split metric into these dimensions
     lower_quantile_idx=1,  # q10
     upper_quantile_idx=9   # q90
 )
@@ -285,12 +286,12 @@ workflow = AnomalyDetectionWorkflow(
     data_writer=anomaly_writer
 )
 
-# Anomalileri tespit et
+# Detect anomalies
 anomalies_df = workflow.run()
 print(anomalies_df[anomalies_df['status'] != 'IN_RANGE'])
 ```
 
-#### Örnek: Filtreleme ve Formatlama ile Anomali Tespiti
+#### Example: Anomaly Detection with Filtering and Formatting
 
 ```python
 from chronomaly.application.workflows import AnomalyDetectionWorkflow
@@ -300,7 +301,7 @@ from chronomaly.infrastructure.transformers.filters import (
 )
 from chronomaly.infrastructure.transformers.formatters import ColumnFormatter
 
-# Transformer pipeline'ı
+# Transformer pipeline
 workflow = AnomalyDetectionWorkflow(
     forecast_reader=forecast_reader,
     actual_reader=actual_reader,
@@ -308,11 +309,11 @@ workflow = AnomalyDetectionWorkflow(
     data_writer=anomaly_writer,
     transformers={
         'after_detection': [
-            # Sadece anomalileri filtrele
+            # Filter only anomalies
             ValueFilter('status', ['BELOW_LOWER', 'ABOVE_UPPER']),
-            # Yüzde formatlama
+            # Percentage formatting
             ColumnFormatter('deviation_pct', lambda x: f"{x:.1f}%"),
-            # Cumulative threshold (opsiyonel)
+            # Cumulative threshold (optional)
             CumulativeThresholdFilter(
                 value_column='actual',
                 threshold=1000,
@@ -325,11 +326,11 @@ workflow = AnomalyDetectionWorkflow(
 anomalies_df = workflow.run()
 ```
 
-### Veri Kaynakları
+### Data Sources
 
-Chronomaly, çeşitli veri kaynaklarını destekler:
+Chronomaly supports various data sources:
 
-#### CSV Dosyaları
+#### CSV Files
 
 ```python
 from chronomaly.infrastructure.data.readers.files import CSVDataReader
@@ -384,101 +385,101 @@ writer = BigQueryDataWriter(
 
 ---
 
-## Mimari
+## Architecture
 
-Chronomaly, Clean Architecture prensiplerine göre katmanlı bir yapıya sahiptir:
+Chronomaly follows Clean Architecture principles with a layered structure:
 
 ```
 chronomaly/
-├── application/          # Uygulama katmanı (workflows)
+├── application/          # Application layer (workflows)
 │   └── workflows/
 │       ├── forecast_workflow.py
 │       └── anomaly_detection_workflow.py
-├── infrastructure/       # Altyapı katmanı (implementasyonlar)
-│   ├── forecasters/      # Tahmin modelleri
+├── infrastructure/       # Infrastructure layer (implementations)
+│   ├── forecasters/      # Forecasting models
 │   │   ├── base.py
 │   │   └── timesfm.py
-│   ├── anomaly_detectors/  # Anomali tespit algoritmaları
+│   ├── anomaly_detectors/  # Anomaly detection algorithms
 │   │   ├── base.py
 │   │   └── forecast_actual.py
-│   ├── transformers/     # Veri dönüşümleri
+│   ├── transformers/     # Data transformations
 │   │   ├── pivot.py
 │   │   ├── filters/
 │   │   └── formatters/
-│   ├── data/             # Veri okuma/yazma
+│   ├── data/             # Data reading/writing
 │   │   ├── readers/
-│   │   │   ├── files/    # CSV vb.
+│   │   │   ├── files/    # CSV, etc.
 │   │   │   ├── databases/  # SQLite, BigQuery
-│   │   │   └── apis/     # API entegrasyonları
+│   │   │   └── apis/     # API integrations
 │   │   └── writers/
 │   │       ├── files/
 │   │       └── databases/
-│   └── notifiers/        # Bildirim sistemi (genişletilebilir)
-└── shared/               # Paylaşılan yardımcılar
+│   └── notifiers/        # Notification system (extensible)
+└── shared/               # Shared utilities
 ```
 
-### Temel Bileşenler
+### Core Components
 
-- **Workflows**: İş akışlarını orkestre eder (ForecastWorkflow, AnomalyDetectionWorkflow)
-- **Forecasters**: Tahmin modelleri (TimesFMForecaster)
-- **AnomalyDetectors**: Anomali tespit algoritmaları (ForecastActualAnomalyDetector)
-- **Transformers**: Veri dönüşümleri (PivotTransformer, Filters, Formatters)
-- **DataReaders**: Veri okuma (CSV, SQLite, BigQuery)
-- **DataWriters**: Veri yazma (CSV, SQLite, BigQuery)
+- **Workflows**: Orchestrate business workflows (ForecastWorkflow, AnomalyDetectionWorkflow)
+- **Forecasters**: Forecasting models (TimesFMForecaster)
+- **AnomalyDetectors**: Anomaly detection algorithms (ForecastActualAnomalyDetector)
+- **Transformers**: Data transformations (PivotTransformer, Filters, Formatters)
+- **DataReaders**: Data reading (CSV, SQLite, BigQuery)
+- **DataWriters**: Data writing (CSV, SQLite, BigQuery)
 
 ---
 
-## Katkıda Bulunma
+## Contributing
 
-Katkılarınızı memnuniyetle karşılıyoruz! İşte nasıl katkıda bulunabileceğiniz:
+We welcome contributions! Here's how you can contribute:
 
-### Başlangıç
+### Getting Started
 
-1. Depoyu fork edin
-2. Feature branch'i oluşturun: `git checkout -b feature/yeni-ozellik`
-3. Değişikliklerinizi commit edin: `git commit -m 'feat: Yeni özellik ekle'`
-4. Branch'inizi push edin: `git push origin feature/yeni-ozellik`
-5. Pull Request açın
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/new-feature`
+3. Commit your changes: `git commit -m 'feat: Add new feature'`
+4. Push your branch: `git push origin feature/new-feature`
+5. Open a Pull Request
 
-### Kodlama Standartları
+### Coding Standards
 
-- **Type Hints**: Tüm fonksiyonlarda type hints kullanın
-- **Docstrings**: Her sınıf ve fonksiyon için docstring ekleyin
-- **Testing**: Yeni özellikler için test yazın
-- **Code Style**: Black ve flake8 ile kod formatlama
+- **Type Hints**: Use type hints in all functions
+- **Docstrings**: Add docstrings for every class and function
+- **Testing**: Write tests for new features
+- **Code Style**: Format code with Black and flake8
 
 ```bash
-# Testleri çalıştır
+# Run tests
 pytest
 
-# Kod formatlama
+# Code formatting
 black chronomaly/
 
 # Linting
 flake8 chronomaly/
 ```
 
-### Commit Mesajları
+### Commit Messages
 
-Conventional Commits formatını kullanın:
+Use Conventional Commits format:
 
-- `feat:` Yeni özellik
-- `fix:` Bug düzeltmesi
-- `docs:` Dokümantasyon
-- `refactor:` Kod refactoring
-- `test:` Test ekleme/düzeltme
-- `chore:` Bakım işleri
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation
+- `refactor:` Code refactoring
+- `test:` Add/fix tests
+- `chore:` Maintenance tasks
 
-### Yeni Veri Kaynağı Ekleme
+### Adding New Data Sources
 
-Yeni bir veri kaynağı eklemek için:
+To add a new data source:
 
-1. `DataReader` veya `DataWriter` base class'ından türetin
-2. `load()` veya `write()` metodunu implement edin
-3. Test yazın
-4. Dokümantasyon ekleyin
+1. Inherit from `DataReader` or `DataWriter` base class
+2. Implement the `load()` or `write()` method
+3. Write tests
+4. Add documentation
 
-Örnek:
+Example:
 
 ```python
 from chronomaly.infrastructure.data.readers.base import DataReader
@@ -489,56 +490,56 @@ class MyCustomReader(DataReader):
         self.connection_string = connection_string
 
     def load(self) -> pd.DataFrame:
-        # Implementasyonunuz
+        # Your implementation
         pass
 ```
 
 ---
 
-## Lisans
+## License
 
-Bu proje [Apache License 2.0](LICENSE) altında lisanslanmıştır.
+This project is licensed under the [Apache License 2.0](LICENSE).
 
 ---
 
-## İletişim / Destek
+## Contact / Support
 
-### Sorun Bildirimi
+### Issue Reporting
 
-Bir hata bulduysanız veya öneriniz varsa:
+If you found a bug or have a suggestion:
 
 - **GitHub Issues**: [https://github.com/insightlytics/chronomaly/issues](https://github.com/insightlytics/chronomaly/issues)
-- Issue açarken lütfen:
-  - Sorunu açık bir şekilde tanımlayın
-  - Hatayı yeniden üretme adımlarını ekleyin
-  - Beklenen ve gerçek davranışı belirtin
-  - Python versiyonu ve işletim sistemi bilgisi verin
+- When opening an issue, please:
+  - Clearly describe the problem
+  - Include steps to reproduce the error
+  - Specify expected and actual behavior
+  - Provide Python version and OS information
 
-### Soru ve Tartışma
+### Questions and Discussions
 
-- **GitHub Discussions**: Genel sorular ve tartışmalar için
-- **Pull Requests**: Kod katkıları için
+- **GitHub Discussions**: For general questions and discussions
+- **Pull Requests**: For code contributions
 
-### Dokümantasyon
+### Documentation
 
 - **GitHub Repository**: [https://github.com/insightlytics/chronomaly](https://github.com/insightlytics/chronomaly)
-- Kod içi docstring'ler ve type hints detaylı kullanım bilgisi sağlar
+- In-code docstrings and type hints provide detailed usage information
 
 ---
 
-## Yol Haritası
+## Roadmap
 
-Gelecek sürümlerde planladığımız özellikler:
+Features planned for future releases:
 
-- [ ] **Ek Forecaster Modelleri**: Prophet, ARIMA, LSTM desteği
-- [ ] **Gelişmiş Anomali Tespiti**: ML-based anomaly detection
-- [ ] **Visualization**: Tahmin ve anomali görselleştirme araçları
-- [ ] **API Server**: REST API ile tahmin servisi
-- [ ] **Notifier Entegrasyonları**: Slack, Email, PagerDuty bildirimleri
-- [ ] **AutoML**: Otomatik model seçimi ve hiperparametre optimizasyonu
-- [ ] **Multi-variate Forecasting**: Çok değişkenli zaman serisi desteği
-- [ ] **Real-time Streaming**: Akış verisi üzerinde gerçek zamanlı tahmin
+- [ ] **Additional Forecaster Models**: Prophet, ARIMA, LSTM support
+- [ ] **Advanced Anomaly Detection**: ML-based anomaly detection
+- [ ] **Visualization**: Forecast and anomaly visualization tools
+- [ ] **API Server**: Forecasting service via REST API
+- [ ] **Notifier Integrations**: Slack, Email, PagerDuty notifications
+- [ ] **AutoML**: Automatic model selection and hyperparameter optimization
+- [ ] **Multi-variate Forecasting**: Multi-variable time series support
+- [ ] **Real-time Streaming**: Real-time forecasting on streaming data
 
 ---
 
-**Chronomaly ile güçlü zaman serisi tahminleri ve anomali tespiti yapın!**
+**Build powerful time series forecasts and anomaly detection with Chronomaly!**

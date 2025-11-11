@@ -1,16 +1,16 @@
 """
-Tests for data transformer.
+Tests for pivot transformer.
 Tests for bugs #3, #4.
 """
 
 import pytest
 import pandas as pd
 import numpy as np
-from chronomaly.infrastructure.transformers import DataTransformer
+from chronomaly.infrastructure.transformers import PivotTransformer
 
 
-class TestDataTransformer:
-    """Tests for DataTransformer"""
+class TestPivotTransformer:
+    """Tests for PivotTransformer"""
 
     def test_basic_pivot(self):
         """Test basic pivot functionality"""
@@ -20,7 +20,7 @@ class TestDataTransformer:
             'sales': [100, 200, 150]
         })
 
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns='product',
             values='sales'
@@ -45,7 +45,7 @@ class TestDataTransformer:
             'metadata': [pd.Timestamp('2024-01-01'), None, pd.Timestamp('2024-01-02')]
         })
 
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns='product',
             values='sales'
@@ -71,7 +71,7 @@ class TestDataTransformer:
             'sales': [100, 200, 150, 300, 250]
         })
 
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='timestamp',
             columns='product',
             values='sales'
@@ -90,7 +90,7 @@ class TestDataTransformer:
             'sales': [100, 200, 150]
         })
 
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns='product',
             values='sales'

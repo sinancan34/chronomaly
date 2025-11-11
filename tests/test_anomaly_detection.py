@@ -43,7 +43,7 @@ def test_anomaly_detection():
 
     try:
         from chronomaly.infrastructure.comparators import ForecastActualComparator
-        from chronomaly.infrastructure.transformers import DataTransformer
+        from chronomaly.infrastructure.transformers import PivotTransformer
 
         # Create sample data
         forecast_df, actual_df = create_sample_data()
@@ -61,7 +61,7 @@ def test_anomaly_detection():
         print(actual_df.to_string(index=False))
 
         # Configure transformer
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index="date",
             columns=["platform", "channel"],
             values="sessions"
@@ -125,13 +125,13 @@ def test_with_filter():
 
     try:
         from chronomaly.infrastructure.comparators import ForecastActualComparator
-        from chronomaly.infrastructure.transformers import DataTransformer
+        from chronomaly.infrastructure.transformers import PivotTransformer
 
         # Create sample data
         forecast_df, actual_df = create_sample_data()
 
         # Configure transformer and detector
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index="date",
             columns=["platform", "channel"],
             values="sessions"

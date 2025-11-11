@@ -15,7 +15,7 @@ import pytest
 import pandas as pd
 from datetime import datetime
 from chronomaly.infrastructure.comparators import ForecastActualComparator
-from chronomaly.infrastructure.transformers import DataTransformer
+from chronomaly.infrastructure.transformers import PivotTransformer
 
 
 class TestEmptyDataEdgeCases:
@@ -23,7 +23,7 @@ class TestEmptyDataEdgeCases:
 
     def test_empty_forecast_dataframe(self):
         """Test that empty forecast DataFrame raises ValueError."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -42,7 +42,7 @@ class TestEmptyDataEdgeCases:
 
     def test_empty_actual_dataframe(self):
         """Test that empty actual DataFrame raises ValueError."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -60,7 +60,7 @@ class TestEmptyDataEdgeCases:
 
     def test_both_dataframes_empty(self):
         """Test that both empty DataFrames raise ValueError."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -79,7 +79,7 @@ class TestTypeValidation:
 
     def test_forecast_not_dataframe(self):
         """Test that non-DataFrame forecast raises TypeError."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -98,7 +98,7 @@ class TestTypeValidation:
 
     def test_actual_not_dataframe(self):
         """Test that non-DataFrame actual raises TypeError."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -120,7 +120,7 @@ class TestInvalidQuantileFormat:
 
     def test_incomplete_quantile_string(self):
         """Test handling of incomplete quantile strings (fewer than 10 values)."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -146,7 +146,7 @@ class TestInvalidQuantileFormat:
 
     def test_non_numeric_quantile_values(self):
         """Test handling of non-numeric values in quantile string."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -170,7 +170,7 @@ class TestInvalidQuantileFormat:
 
     def test_empty_quantile_string(self):
         """Test handling of empty quantile string."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -197,7 +197,7 @@ class TestDivisionByZeroEdgeCases:
 
     def test_zero_q10_and_q90(self):
         """Test when both q10 and q90 are zero."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -221,7 +221,7 @@ class TestDivisionByZeroEdgeCases:
 
     def test_zero_q10_with_nonzero_actual(self):
         """Test when q10 is zero but actual is negative."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -246,7 +246,7 @@ class TestDivisionByZeroEdgeCases:
 
     def test_zero_q90_with_positive_actual(self):
         """Test when q90 is zero but actual is positive."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -274,7 +274,7 @@ class TestAllZeroValues:
 
     def test_all_zero_forecast_and_actual(self):
         """Test when both forecast and actual are all zeros."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -303,7 +303,7 @@ class TestNegativeValues:
 
     def test_negative_actual_value(self):
         """Test handling of negative actual values."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -331,7 +331,7 @@ class TestMismatchedDateRanges:
 
     def test_no_overlapping_dates(self):
         """Test when forecast and actual have no overlapping dates."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -354,7 +354,7 @@ class TestMismatchedDateRanges:
 
     def test_partial_date_overlap(self):
         """Test when forecast and actual have partial date overlap."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -382,7 +382,7 @@ class TestDuplicateMetrics:
 
     def test_duplicate_metric_columns(self):
         """Test handling of duplicate metric columns in forecast."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -410,7 +410,7 @@ class TestDimensionExtraction:
 
     def test_dimension_names_splitting(self):
         """Test that dimension names are correctly extracted."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform', 'channel'],
             values='sessions'
@@ -441,7 +441,7 @@ class TestDimensionExtraction:
 
     def test_dimension_names_validation(self):
         """Test that dimension_names validation works correctly."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform', 'channel'],
             values='sessions'
@@ -460,7 +460,7 @@ class TestFilteringOptions:
 
     def test_cumulative_threshold_filtering(self):
         """Test that cumulative threshold filtering works correctly."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -488,7 +488,7 @@ class TestFilteringOptions:
 
     def test_return_only_anomalies(self):
         """Test that return_only_anomalies flag works correctly."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'
@@ -516,7 +516,7 @@ class TestFilteringOptions:
 
     def test_min_deviation_threshold(self):
         """Test that min_deviation_threshold works correctly."""
-        transformer = DataTransformer(
+        transformer = PivotTransformer(
             index='date',
             columns=['platform'],
             values='sessions'

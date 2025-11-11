@@ -5,7 +5,7 @@ Forecast vs Actual anomaly detection implementation.
 import warnings
 import pandas as pd
 import numpy as np
-from typing import Optional, List
+from typing import Optional, List, Dict, Callable
 from .base import AnomalyDetector
 from ..transformers.pivot import PivotTransformer
 
@@ -14,10 +14,8 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
     """
     Anomaly detector that compares forecast quantiles with actual values.
 
-    This detector focuses SOLELY on anomaly detection. It does NOT include:
-    - Pre-filtering (use PreFilter classes)
-    - Post-filtering (use PostFilter classes)
-    - Result formatting (use PostFilter classes)
+    This detector focuses SOLELY on anomaly detection. Data transformations
+    (filtering, formatting) should be configured via the transformers parameter.
 
     Args:
         transformer: PivotTransformer instance to pivot actual data
@@ -26,6 +24,9 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
         dimension_names: List of dimension names to extract from metric
         lower_quantile_idx: Index of lower confidence bound (default: 1 for q10)
         upper_quantile_idx: Index of upper confidence bound (default: 9 for q90)
+        transformers: Optional dict of transformer lists to apply after detection
+                     Example: {'after': [Filter1(), Filter2()]}
+                     Note: 'before' stage not supported for detectors
     """
 
     QUANTILE_POINT_IDX = 0
@@ -38,7 +39,8 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
         exclude_columns: Optional[List[str]] = None,
         dimension_names: Optional[List[str]] = None,
         lower_quantile_idx: int = 1,
-        upper_quantile_idx: int = 9
+        upper_quantile_idx: int = 9,
+        transformers: Optional[Dict[str, List[Callable]]] = None
     ):
         self.transformer = transformer
         self.date_column = date_column
@@ -46,6 +48,7 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
         self.dimension_names = dimension_names
         self.lower_quantile_idx = lower_quantile_idx
         self.upper_quantile_idx = upper_quantile_idx
+        self.transformers = transformers or {}
 
         if dimension_names is not None:
             self._validate_dimension_names()
@@ -69,6 +72,34 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
                 f"  transformer.columns: {transformer_columns}"
             )
 
+    def _apply_transformers(self, df: pd.DataFrame, stage: str) -> pd.DataFrame:
+        """
+        Apply transformers for a specific stage.
+
+        Args:
+            df: DataFrame to transform
+            stage: Stage name ('after')
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame
+        """
+        if stage not in self.transformers:
+            return df
+
+        result = df
+        for transformer in self.transformers[stage]:
+            # Support both .filter() and .format() methods
+            if hasattr(transformer, 'filter'):
+                result = transformer.filter(result)
+            elif hasattr(transformer, 'format'):
+                result = transformer.format(result)
+            elif callable(transformer):
+                result = transformer(result)
+            else:
+                raise TypeError(f"Transformer must have .filter(), .format() method or be callable")
+
+        return result
+
     def detect(self, forecast_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:
         """Detect anomalies by comparing forecast quantiles with actual values."""
         self._validate_inputs(forecast_df, actual_df)
@@ -82,6 +113,9 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
 
         if self.dimension_names:
             result_df = self._split_metric_to_dimensions(result_df)
+
+        # Apply transformers after detection
+        result_df = self._apply_transformers(result_df, 'after')
 
         return result_df
 

@@ -6,11 +6,11 @@ import pandas as pd
 from typing import Union, List
 
 
-class DataTransformer:
+class PivotTransformer:
     """
-    Data transformer for converting time series data into pivot format.
+    Pivot transformer for converting time series data between long and wide formats.
 
-    This class transforms long-format time series data into wide-format
+    This class transforms long-format time series data into wide-format (pivot table)
     suitable for forecasting models.
 
     Args:

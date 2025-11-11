@@ -6,7 +6,7 @@ import pandas as pd
 import inspect
 from typing import Optional
 from ...infrastructure.data.readers.base import DataReader
-from ...infrastructure.transformers.pivot import DataTransformer
+from ...infrastructure.transformers.pivot import PivotTransformer
 from ...infrastructure.forecasters.base import Forecaster
 from ...infrastructure.data.writers.base import DataWriter
 
@@ -33,7 +33,7 @@ class ForecastWorkflow:
         data_reader: DataReader,
         forecaster: Forecaster,
         data_writer: DataWriter,
-        transformer: Optional[DataTransformer] = None
+        transformer: Optional[PivotTransformer] = None
     ):
         self.data_reader = data_reader
         self.forecaster = forecaster

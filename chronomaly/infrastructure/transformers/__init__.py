@@ -9,12 +9,12 @@ This module provides:
 All transformers are general-purpose and can be used at any pipeline stage.
 """
 
-from .pivot import DataTransformer
+from .pivot import PivotTransformer
 from . import filters
 from . import formatters
 
 __all__ = [
-    'DataTransformer',
+    'PivotTransformer',
     'filters',
     'formatters'
 ]

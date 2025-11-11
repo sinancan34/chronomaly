@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from typing import Optional, List
 from .base import AnomalyDetector
-from ..transformers.pivot import DataTransformer
+from ..transformers.pivot import PivotTransformer
 
 
 class ForecastActualAnomalyDetector(AnomalyDetector):
@@ -20,7 +20,7 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
     - Result formatting (use PostFilter classes)
 
     Args:
-        transformer: DataTransformer instance to pivot actual data
+        transformer: PivotTransformer instance to pivot actual data
         date_column: Name of the date column (default: 'date')
         exclude_columns: List of columns to exclude from comparison
         dimension_names: List of dimension names to extract from metric
@@ -33,7 +33,7 @@ class ForecastActualAnomalyDetector(AnomalyDetector):
 
     def __init__(
         self,
-        transformer: DataTransformer,
+        transformer: PivotTransformer,
         date_column: str = 'date',
         exclude_columns: Optional[List[str]] = None,
         dimension_names: Optional[List[str]] = None,

@@ -42,7 +42,7 @@ def test_anomaly_detection():
     """Test the anomaly detection workflow."""
 
     try:
-        from chronomaly.infrastructure.comparators import ForecastActualComparator
+        from chronomaly.infrastructure.anomaly_detectors import ForecastActualComparator
         from chronomaly.infrastructure.transformers import PivotTransformer
 
         # Create sample data
@@ -124,7 +124,7 @@ def test_with_filter():
     """Test the filtered detection method."""
 
     try:
-        from chronomaly.infrastructure.comparators import ForecastActualComparator
+        from chronomaly.infrastructure.anomaly_detectors import ForecastActualComparator
         from chronomaly.infrastructure.transformers import PivotTransformer
 
         # Create sample data

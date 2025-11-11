@@ -19,8 +19,8 @@ class SQLiteDataWriter(DataWriter):
         table_name: Name of the table to write to
         if_exists: How to behave if table exists {'fail', 'replace', 'append'}
                    (default: 'replace')
-        transformers: Optional dict of transformer lists to apply before writing data
-                     Example: {'after': [Filter1(), Filter2()]}
+        transformers: Optional dict of transformer lists to apply before/after writing
+                     Example: {'before': [Filter1(), Filter2()]}
         **kwargs: Additional arguments to pass to pandas.to_sql()
 
     Security Notes:
@@ -97,7 +97,7 @@ class SQLiteDataWriter(DataWriter):
 
         Args:
             df: DataFrame to transform
-            stage: Stage name ('after')
+            stage: Stage name ('before', 'after')
 
         Returns:
             pd.DataFrame: Transformed DataFrame
@@ -131,7 +131,7 @@ class SQLiteDataWriter(DataWriter):
             RuntimeError: If database write operation fails
         """
         # Apply transformers before writing data
-        dataframe = self._apply_transformers(dataframe, 'after')
+        dataframe = self._apply_transformers(dataframe, 'before')
 
         # BUG-44 FIX: Validate dataframe type
         if not isinstance(dataframe, pd.DataFrame):

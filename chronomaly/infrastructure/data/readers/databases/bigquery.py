@@ -22,6 +22,7 @@ class BigQueryDataReader(DataReader):
         date_column: Name of the date column (will be parsed as datetime)
         transformers: Optional dict of transformer lists to apply after loading data
                      Example: {'after': [Filter1(), Filter2()]}
+                     Note: 'before' stage not supported for readers
 
     Security Notes:
         - The query parameter is executed directly on BigQuery. Ensure queries

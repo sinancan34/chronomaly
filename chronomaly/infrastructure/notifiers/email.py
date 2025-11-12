@@ -87,20 +87,31 @@ class EmailNotifier(Notifier, TransformableMixin):
 
     def _get_smtp_config(self) -> Dict[str, Any]:
         """
-        Get SMTP configuration.
+        Get SMTP configuration from environment variables.
 
-        Update these values to configure your SMTP server.
+        Environment variables are loaded from .env file automatically.
+        See .env.example for a template.
+
+        Environment Variables:
+            SMTP_HOST: SMTP server hostname (default: smtp.gmail.com)
+            SMTP_PORT: SMTP server port (default: 587)
+            SMTP_USER: SMTP username/email
+            SMTP_PASSWORD: SMTP password or app password
+            SMTP_FROM_EMAIL: From email address (default: SMTP_USER)
+            SMTP_USE_TLS: Use TLS encryption (default: True)
 
         Returns:
             dict: SMTP configuration parameters
         """
+        import os
+
         return {
-            'host': 'smtp.gmail.com',
-            'port': 587,
-            'user': 'your-email@gmail.com',
-            'password': 'your-app-password',  # Use App Password for Gmail
-            'from_email': 'your-email@gmail.com',
-            'use_tls': True
+            'host': os.getenv('SMTP_HOST', 'smtp.gmail.com'),
+            'port': int(os.getenv('SMTP_PORT', '587')),
+            'user': os.getenv('SMTP_USER', ''),
+            'password': os.getenv('SMTP_PASSWORD', ''),
+            'from_email': os.getenv('SMTP_FROM_EMAIL', os.getenv('SMTP_USER', '')),
+            'use_tls': os.getenv('SMTP_USE_TLS', 'True').lower() in ('true', '1', 'yes')
         }
 
     def _get_email_subject(self) -> str:

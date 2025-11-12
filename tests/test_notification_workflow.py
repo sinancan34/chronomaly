@@ -192,8 +192,11 @@ class TestEmailNotifier:
         # Send notification
         notifier.notify({'anomalies': df})
 
-        # Verify SMTP was called
-        mock_smtp.assert_called_once_with("smtp.gmail.com", 587)
+        # Verify SMTP was called (with config from environment or defaults)
+        assert mock_smtp.call_count == 1
+        # Check port is correct
+        call_args = mock_smtp.call_args
+        assert call_args[0][1] == 587  # Port
         mock_server.starttls.assert_called_once()
         mock_server.login.assert_called_once()
         mock_server.send_message.assert_called_once()

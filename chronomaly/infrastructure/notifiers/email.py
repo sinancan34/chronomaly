@@ -172,7 +172,40 @@ class EmailNotifier(Notifier, TransformableMixin):
         Returns:
             str: HTML content
         """
-        # Email header
+        # Apply styling to DataFrame
+        styled_df = df.style
+
+        # Format numeric columns with 2 decimal places
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        if numeric_cols:
+            styled_df = styled_df.format({col: '{:.2f}' for col in numeric_cols}, na_rep='-')
+
+        # Apply status column styling
+        if 'status' in df.columns:
+            def style_status(val):
+                if pd.isna(val):
+                    return ''
+                status_upper = str(val).upper()
+                if 'BELOW' in status_upper:
+                    return 'color: #2196F3; font-weight: bold;'
+                elif 'ABOVE' in status_upper:
+                    return 'color: #f44336; font-weight: bold;'
+                elif 'IN_RANGE' in status_upper or 'IN RANGE' in status_upper:
+                    return 'color: #4CAF50;'
+                elif 'NO_FORECAST' in status_upper or 'NO FORECAST' in status_upper:
+                    return 'color: #9E9E9E;'
+                return ''
+
+            styled_df = styled_df.map(style_status, subset=['status'])
+
+        # Hide index and set table attributes
+        styled_df = styled_df.hide(axis='index')
+        styled_df = styled_df.set_table_attributes('class="anomaly-table" id="anomaly-data"')
+
+        # Generate table HTML using pandas
+        table_html = styled_df.to_html()
+
+        # Email header with CSS
         html = """
         <html>
         <head>
@@ -197,38 +230,24 @@ class EmailNotifier(Notifier, TransformableMixin):
                     margin-bottom: 20px;
                     font-size: 14px;
                 }}
-                table {{
+                .anomaly-table {{
                     width: 100%;
                     border-collapse: collapse;
                     margin-top: 20px;
                 }}
-                th {{
+                .anomaly-table th {{
                     background-color: #4CAF50;
                     color: white;
                     padding: 12px;
                     text-align: left;
                     font-weight: bold;
                 }}
-                td {{
+                .anomaly-table td {{
                     padding: 10px;
                     border-bottom: 1px solid #ddd;
                 }}
-                tr:hover {{
+                .anomaly-table tr:hover {{
                     background-color: #f5f5f5;
-                }}
-                .status-below {{
-                    color: #2196F3;
-                    font-weight: bold;
-                }}
-                .status-above {{
-                    color: #f44336;
-                    font-weight: bold;
-                }}
-                .status-in-range {{
-                    color: #4CAF50;
-                }}
-                .status-no-forecast {{
-                    color: #9E9E9E;
                 }}
                 .footer {{
                     margin-top: 30px;
@@ -245,76 +264,20 @@ class EmailNotifier(Notifier, TransformableMixin):
                 <div class="summary">
                     <strong>{count}</strong> anomal{plural} detected
                 </div>
-        """.format(
-            count=len(df),
-            plural="ies" if len(df) != 1 else "y"
-        )
-
-        # Generate table
-        html += "<table>\n<thead>\n<tr>\n"
-
-        # Table headers
-        for col in df.columns:
-            html += f"<th>{col.replace('_', ' ').title()}</th>\n"
-
-        html += "</tr>\n</thead>\n<tbody>\n"
-
-        # Table rows
-        for _, row in df.iterrows():
-            html += "<tr>\n"
-            for col in df.columns:
-                value = row[col]
-
-                # Apply styling for status column
-                if col == 'status':
-                    status_class = self._get_status_class(str(value))
-                    html += f'<td class="{status_class}">{value}</td>\n'
-                # Format numeric columns
-                elif pd.api.types.is_numeric_dtype(type(value)):
-                    if pd.notna(value):
-                        # Format with 2 decimal places
-                        html += f"<td>{value:.2f}</td>\n"
-                    else:
-                        html += "<td>-</td>\n"
-                else:
-                    html += f"<td>{value}</td>\n"
-
-            html += "</tr>\n"
-
-        html += """
-                </tbody>
-            </table>
-            <div class="footer">
-                This is an automated alert from Chronomaly anomaly detection system.
-            </div>
+                {table}
+                <div class="footer">
+                    This is an automated alert from Chronomaly anomaly detection system.
+                </div>
             </div>
         </body>
         </html>
-        """
+        """.format(
+            count=len(df),
+            plural="ies" if len(df) != 1 else "y",
+            table=table_html
+        )
 
         return html
-
-    def _get_status_class(self, status: str) -> str:
-        """
-        Get CSS class name for anomaly status.
-
-        Args:
-            status: Anomaly status string
-
-        Returns:
-            str: CSS class name
-        """
-        status_upper = status.upper()
-        if 'BELOW' in status_upper:
-            return 'status-below'
-        elif 'ABOVE' in status_upper:
-            return 'status-above'
-        elif 'IN_RANGE' in status_upper or 'IN RANGE' in status_upper:
-            return 'status-in-range'
-        elif 'NO_FORECAST' in status_upper or 'NO FORECAST' in status_upper:
-            return 'status-no-forecast'
-        else:
-            return ''
 
     def _send_email(self, html_body: str) -> None:
         """

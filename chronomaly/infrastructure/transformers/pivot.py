@@ -91,6 +91,10 @@ class PivotTransformer:
                 f"Available columns: {sorted(df.columns)}"
             )
 
+        # Convert pivot columns to string before cleaning
+        for column in columns_list:
+            df[column] = df[column].astype(str)
+
         # Clean string columns (lowercase, remove special characters)
         # BUG-35 FIX: Add logging/warning instead of silent pass
         for column in df.columns:

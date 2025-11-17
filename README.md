@@ -11,6 +11,7 @@
 - [Usage](#usage)
   - [Forecast Workflow](#forecast-workflow)
   - [Anomaly Detection Workflow](#anomaly-detection-workflow)
+  - [Notification Workflow](#notification-workflow)
   - [Data Sources](#data-sources)
 - [Architecture](#architecture)
 - [Contributing](#contributing)
@@ -49,11 +50,13 @@ Time series forecasting and anomaly detection are critical needs in modern data 
 - **Flexible Workflow Orchestration**:
   - ForecastWorkflow: Data reading, transformation, forecasting, writing
   - AnomalyDetectionWorkflow: Forecast vs actual comparison
+  - NotificationWorkflow: Multi-channel anomaly alerting (email, Slack, etc.)
 - **Data Transformations**:
   - PivotTransformer: Pivots data into time series format
   - Filters: Value filtering, cumulative threshold filtering
   - Formatters: Column formatting with built-in percentage helper
 - **Anomaly Detection**: Quantile-based anomaly detection (BELOW_LOWER, IN_RANGE, ABOVE_UPPER)
+- **Alert Notifications**: Email notifications with HTML formatting and filtering support
 - **Modular Architecture**: Each component can be used independently and is easily extensible
 - **Type Safety**: Safe code writing with type hints
 
@@ -153,17 +156,27 @@ forecast_df = workflow.run(horizon=7)
 ```python
 from chronomaly.infrastructure.data.readers.databases import BigQueryDataReader
 from chronomaly.infrastructure.data.writers.databases import BigQueryDataWriter
+from chronomaly.infrastructure.transformers import PivotTransformer
 
-# BigQuery reader
+# BigQuery reader with pivot transformation
 reader = BigQueryDataReader(
     service_account_file="path/to/service-account.json",
     project="my-gcp-project",
     query="""
-        SELECT date, metric_name, value
+        SELECT date, platform, channel, sessions
         FROM `project.dataset.table`
         WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
     """,
-    date_column="date"
+    date_column="date",
+    transformers={
+        'after': [
+            PivotTransformer(
+                index='date',
+                columns=['platform', 'channel'],
+                values='sessions'
+            )
+        ]
+    }
 )
 
 # BigQuery writer
@@ -174,6 +187,9 @@ writer = BigQueryDataWriter(
     table="forecasts",
     write_disposition="WRITE_APPEND"
 )
+
+# Forecaster
+forecaster = TimesFMForecaster(frequency='D')
 
 # Create and run workflow
 workflow = ForecastWorkflow(
@@ -302,6 +318,125 @@ workflow = AnomalyDetectionWorkflow(
 anomalies_df = workflow.run()
 ```
 
+### Notification Workflow
+
+NotificationWorkflow sends alerts about detected anomalies via multiple channels (email, Slack, etc.). It integrates seamlessly with AnomalyDetectionWorkflow to notify teams about significant anomalies.
+
+#### Example: Email Notifications with Environment Variables
+
+```python
+from chronomaly.application.workflows import NotificationWorkflow
+from chronomaly.infrastructure.notifiers import EmailNotifier
+from chronomaly.infrastructure.transformers.filters import ValueFilter
+
+# First, run anomaly detection
+anomalies_df = anomaly_workflow.run()
+
+# Configure email notifier (reads SMTP settings from environment variables)
+# Set these in your .env file:
+# SMTP_HOST=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_USER=your-email@gmail.com
+# SMTP_PASSWORD=your-app-password
+# SMTP_FROM_EMAIL=alerts@example.com (optional, defaults to SMTP_USER)
+
+email_notifier = EmailNotifier(
+    to=["team@example.com", "manager@example.com"]
+)
+
+# Create and run notification workflow
+notification_workflow = NotificationWorkflow(
+    anomalies_data=anomalies_df,
+    notifiers=[email_notifier]
+)
+
+notification_workflow.run()
+```
+
+#### Example: Email Notifications with Filters
+
+Only notify for significant anomalies:
+
+```python
+from chronomaly.infrastructure.transformers.filters import ValueFilter
+
+# Configure email notifier with filters
+email_notifier = EmailNotifier(
+    to=["team@example.com"],
+    transformers={
+        'before': [
+            # Only email actual anomalies (not IN_RANGE)
+            ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER'], mode='include'),
+            # Only notify for deviations > 10%
+            ValueFilter('deviation_pct', min_value=0.1)
+        ]
+    }
+)
+
+notification_workflow = NotificationWorkflow(
+    anomalies_data=anomalies_df,
+    notifiers=[email_notifier]
+)
+
+notification_workflow.run()
+```
+
+#### Example: Multiple Notification Channels
+
+Send notifications to multiple channels simultaneously:
+
+```python
+# Configure multiple notifiers
+critical_email = EmailNotifier(
+    to=["oncall@example.com"],
+    transformers={
+        'before': [
+            # Only critical anomalies (>20% deviation)
+            ValueFilter('deviation_pct', min_value=0.2),
+            ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER'], mode='include')
+        ]
+    }
+)
+
+team_email = EmailNotifier(
+    to=["analytics-team@example.com"],
+    transformers={
+        'before': [
+            # All anomalies (>5% deviation)
+            ValueFilter('deviation_pct', min_value=0.05),
+            ValueFilter('status', values=['BELOW_LOWER', 'ABOVE_UPPER'], mode='include')
+        ]
+    }
+)
+
+# Send to multiple channels
+notification_workflow = NotificationWorkflow(
+    anomalies_data=anomalies_df,
+    notifiers=[critical_email, team_email]  # Both will receive filtered data
+)
+
+notification_workflow.run()
+```
+
+#### SMTP Configuration
+
+EmailNotifier reads SMTP settings from environment variables. Create a `.env` file in your project root:
+
+```bash
+# .env file
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM_EMAIL=alerts@example.com  # Optional, defaults to SMTP_USER
+SMTP_USE_TLS=True  # Optional, defaults to True
+```
+
+**Gmail Users**: For Gmail, you need to:
+1. Enable 2-factor authentication
+2. Generate an [App Password](https://support.google.com/accounts/answer/185833)
+3. Use the app password as `SMTP_PASSWORD`
+
 ### Data Sources
 
 Chronomaly supports various data sources:
@@ -370,7 +505,8 @@ chronomaly/
 ├── application/          # Application layer (workflows)
 │   └── workflows/
 │       ├── forecast_workflow.py
-│       └── anomaly_detection_workflow.py
+│       ├── anomaly_detection_workflow.py
+│       └── notification_workflow.py
 ├── infrastructure/       # Infrastructure layer (implementations)
 │   ├── forecasters/      # Forecasting models
 │   │   ├── base.py
@@ -390,85 +526,42 @@ chronomaly/
 │   │   └── writers/
 │   │       ├── files/
 │   │       └── databases/
-│   └── notifiers/        # Notification system (extensible)
+│   └── notifiers/        # Notification system
+│       ├── base.py
+│       └── email.py      # Email notifier (SMTP)
 └── shared/               # Shared utilities
 ```
 
 ### Core Components
 
-- **Workflows**: Orchestrate business workflows (ForecastWorkflow, AnomalyDetectionWorkflow)
+- **Workflows**: Orchestrate business workflows (ForecastWorkflow, AnomalyDetectionWorkflow, NotificationWorkflow)
 - **Forecasters**: Forecasting models (TimesFMForecaster)
 - **AnomalyDetectors**: Anomaly detection algorithms (ForecastActualAnomalyDetector)
 - **Transformers**: Data transformations (PivotTransformer, Filters, Formatters)
 - **DataReaders**: Data reading (CSV, SQLite, BigQuery)
 - **DataWriters**: Data writing (SQLite, BigQuery)
+- **Notifiers**: Alert notifications (EmailNotifier with SMTP support)
 
 ---
 
 ## Contributing
 
-We welcome contributions! Here's how you can contribute:
+We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) for detailed information on how to contribute to this project.
 
-### Getting Started
+### Quick Start for Contributors
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/new-feature`
-3. Commit your changes: `git commit -m 'feat: Add new feature'`
-4. Push your branch: `git push origin feature/new-feature`
-5. Open a Pull Request
+3. Make your changes following our [coding standards](CONTRIBUTING.md#coding-standards)
+4. Write tests for your changes
+5. Commit using [Conventional Commits](https://www.conventionalcommits.org/) format
+6. Push your branch: `git push origin feature/new-feature`
+7. Open a Pull Request
 
-### Coding Standards
-
-- **Type Hints**: Use type hints in all functions
-- **Docstrings**: Add docstrings for every class and function
-- **Testing**: Write tests for new features
-- **Code Style**: Format code with Black and flake8
-
-```bash
-# Run tests
-pytest
-
-# Code formatting
-black chronomaly/
-
-# Linting
-flake8 chronomaly/
-```
-
-### Commit Messages
-
-Use Conventional Commits format:
-
-- `feat:` New feature
-- `fix:` Bug fix
-- `docs:` Documentation
-- `refactor:` Code refactoring
-- `test:` Add/fix tests
-- `chore:` Maintenance tasks
-
-### Adding New Data Sources
-
-To add a new data source:
-
-1. Inherit from `DataReader` or `DataWriter` base class
-2. Implement the `load()` or `write()` method
-3. Write tests
-4. Add documentation
-
-Example:
-
-```python
-from chronomaly.infrastructure.data.readers.base import DataReader
-import pandas as pd
-
-class MyCustomReader(DataReader):
-    def __init__(self, connection_string: str):
-        self.connection_string = connection_string
-
-    def load(self) -> pd.DataFrame:
-        # Your implementation
-        pass
-```
+For more details, see:
+- [Contributing Guidelines](CONTRIBUTING.md) - Detailed contribution instructions
+- [Code of Conduct](CODE_OF_CONDUCT.md) - Community guidelines
+- [Security Policy](SECURITY.md) - How to report security vulnerabilities
 
 ---
 
@@ -500,21 +593,6 @@ If you found a bug or have a suggestion:
 
 - **GitHub Repository**: [https://github.com/sinancan34/chronomaly](https://github.com/sinancan34/chronomaly)
 - In-code docstrings and type hints provide detailed usage information
-
----
-
-## Roadmap
-
-Features planned for future releases:
-
-- [ ] **Additional Forecaster Models**: Prophet, ARIMA, LSTM support
-- [ ] **Advanced Anomaly Detection**: ML-based anomaly detection
-- [ ] **Visualization**: Forecast and anomaly visualization tools
-- [ ] **API Server**: Forecasting service via REST API
-- [ ] **Notifier Integrations**: Slack, Email, PagerDuty notifications
-- [ ] **AutoML**: Automatic model selection and hyperparameter optimization
-- [ ] **Multi-variate Forecasting**: Multi-variable time series support
-- [ ] **Real-time Streaming**: Real-time forecasting on streaming data
 
 ---
 

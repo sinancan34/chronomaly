@@ -64,9 +64,9 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/insightlytics/chronomaly"
-Repository = "https://github.com/insightlytics/chronomaly"
-Issues = "https://github.com/insightlytics/chronomaly/issues"
+Homepage = "https://github.com/sinancan34/chronomaly"
+Repository = "https://github.com/sinancan34/chronomaly"
+Issues = "https://github.com/sinancan34/chronomaly/issues"
 
 [tool.setuptools]
 packages = { find = {} }

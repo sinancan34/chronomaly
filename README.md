@@ -70,7 +70,7 @@ Time series forecasting and anomaly detection are critical needs in modern data 
 
 ```bash
 # Clone the repository
-git clone https://github.com/insightlytics/chronomaly.git
+git clone https://github.com/sinancan34/chronomaly.git
 cd chronomaly
 
 # Install core dependencies
@@ -484,7 +484,7 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 If you found a bug or have a suggestion:
 
-- **GitHub Issues**: [https://github.com/insightlytics/chronomaly/issues](https://github.com/insightlytics/chronomaly/issues)
+- **GitHub Issues**: [https://github.com/sinancan34/chronomaly/issues](https://github.com/sinancan34/chronomaly/issues)
 - When opening an issue, please:
   - Clearly describe the problem
   - Include steps to reproduce the error
@@ -498,7 +498,7 @@ If you found a bug or have a suggestion:
 
 ### Documentation
 
-- **GitHub Repository**: [https://github.com/insightlytics/chronomaly](https://github.com/insightlytics/chronomaly)
+- **GitHub Repository**: [https://github.com/sinancan34/chronomaly](https://github.com/sinancan34/chronomaly)
 - In-code docstrings and type hints provide detailed usage information
 
 ---

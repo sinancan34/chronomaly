@@ -3,7 +3,7 @@ Value filter - keeps rows based on column values or numeric thresholds.
 """
 
 import pandas as pd
-from typing import List, Union, Optional
+from typing import Any, List, Union, Optional
 from .base import DataFrameFilter
 
 
@@ -48,7 +48,7 @@ class ValueFilter(DataFrameFilter):
     def __init__(
         self,
         column: str,
-        values: Optional[Union[any, List[any]]] = None,
+        values: Optional[Union[Any, List[Any]]] = None,
         mode: str = 'include',
         min_value: Optional[float] = None,
         max_value: Optional[float] = None

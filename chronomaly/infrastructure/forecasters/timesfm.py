@@ -55,11 +55,11 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
         transformers: Optional[Dict[str, List[Callable]]] = None,
         **kwargs: Any
     ):
-        self.model_name = model_name
-        self.max_horizon = max_horizon  # Store for validation
-        self.frequency = frequency  # BUG-34 FIX: Make frequency configurable
-        self.transformers = transformers or {}
-        self.config = timesfm.ForecastConfig(
+        self.model_name: str = model_name
+        self.max_horizon: int = max_horizon  # Store for validation
+        self.frequency: str = frequency  # BUG-34 FIX: Make frequency configurable
+        self.transformers: dict[str, list[Callable]] = transformers or {}
+        self.config: Any = timesfm.ForecastConfig(
             max_context=max_context,
             max_horizon=max_horizon,
             normalize_inputs=normalize_inputs,
@@ -69,7 +69,7 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
             fix_quantile_crossing=fix_quantile_crossing,
             **kwargs
         )
-        self._model = None
+        self._model: Any | None = None
 
     def _get_model(self):
         """

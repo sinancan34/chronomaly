@@ -52,7 +52,7 @@ class ColumnFormatter(DataFrameFormatter):
         if not formatters:
             raise ValueError("formatters dictionary cannot be empty")
 
-        self.formatters = formatters
+        self.formatters: dict[str, Callable] = formatters
 
     @classmethod
     def percentage(

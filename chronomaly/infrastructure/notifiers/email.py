@@ -125,28 +125,28 @@ class EmailNotifier(Notifier, TransformableMixin):
     ):
         # Validate and normalize recipients
         if isinstance(to, str):
-            self.to = [to]
+            self.to: list[str] = [to]
         elif isinstance(to, list):
             if not to:
                 raise ValueError("Recipient list cannot be empty")
             if not all(isinstance(email, str) for email in to):
                 raise TypeError("All recipients must be strings")
-            self.to = to
+            self.to: list[str] = to
         else:
             raise TypeError("'to' must be a string or list of strings")
 
-        self.transformers = transformers or {}
-        self.chart_data_reader = chart_data_reader
-        self._subject_template = subject
+        self.transformers: dict[str, list[Callable]] = transformers or {}
+        self.chart_data_reader: Any | None = chart_data_reader
+        self._subject_template: str | None = subject
 
         # Get SMTP configuration from internal method
         smtp_config = self._get_smtp_config()
-        self.smtp_host = smtp_config['host']
-        self.smtp_port = smtp_config['port']
-        self.smtp_user = smtp_config['user']
-        self.smtp_password = smtp_config['password']
-        self.from_email = smtp_config['from_email']
-        self.use_tls = smtp_config['use_tls']
+        self.smtp_host: str = smtp_config['host']
+        self.smtp_port: int = smtp_config['port']
+        self.smtp_user: str = smtp_config['user']
+        self.smtp_password: str = smtp_config['password']
+        self.from_email: str = smtp_config['from_email']
+        self.use_tls: bool = smtp_config['use_tls']
 
         # Validate SMTP credentials
         self._validate_smtp_config()

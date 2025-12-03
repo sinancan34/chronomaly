@@ -43,12 +43,12 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
         upper_quantile_idx: int = 9,
         transformers: Optional[Dict[str, List[Callable]]] = None
     ):
-        self.date_column = date_column
-        self.exclude_columns = exclude_columns or [date_column]
-        self.dimension_names = dimension_names
-        self.lower_quantile_idx = lower_quantile_idx
-        self.upper_quantile_idx = upper_quantile_idx
-        self.transformers = transformers or {}
+        self.date_column: str = date_column
+        self.exclude_columns: list[str] = exclude_columns or [date_column]
+        self.dimension_names: list[str] | None = dimension_names
+        self.lower_quantile_idx: int = lower_quantile_idx
+        self.upper_quantile_idx: int = upper_quantile_idx
+        self.transformers: dict[str, list[Callable]] = transformers or {}
 
 
     def detect(self, forecast_df: pd.DataFrame, actual_df: pd.DataFrame) -> pd.DataFrame:

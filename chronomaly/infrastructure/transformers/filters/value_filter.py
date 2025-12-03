@@ -60,11 +60,11 @@ class ValueFilter(DataFrameFilter):
         if mode not in ['include', 'exclude']:
             raise ValueError(f"mode must be 'include' or 'exclude', got {mode}")
 
-        self.column = column
-        self.values = values if values is None else (values if isinstance(values, list) else [values])
-        self.mode = mode
-        self.min_value = min_value
-        self.max_value = max_value
+        self.column: str = column
+        self.values: list[Any] | None = values if values is None else (values if isinstance(values, list) else [values])
+        self.mode: str = mode
+        self.min_value: float | None = min_value
+        self.max_value: float | None = max_value
 
     def filter(self, df: pd.DataFrame) -> pd.DataFrame:
         """

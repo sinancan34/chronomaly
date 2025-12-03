@@ -44,9 +44,9 @@ class CumulativeThresholdFilter(DataFrameFilter):
         if not 0 < threshold_pct <= 1.0:
             raise ValueError(f"threshold_pct must be between 0 and 1, got {threshold_pct}")
 
-        self.value_column = value_column
-        self.threshold_pct = threshold_pct
-        self.exclude_columns = exclude_columns or []
+        self.value_column: str = value_column
+        self.threshold_pct: float = threshold_pct
+        self.exclude_columns: list[str] = exclude_columns or []
 
     def filter(self, df: pd.DataFrame) -> pd.DataFrame:
         """

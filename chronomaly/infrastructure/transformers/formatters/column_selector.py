@@ -70,9 +70,9 @@ class ColumnSelector(DataFrameFormatter):
 
         # Normalize columns to list
         if isinstance(columns, str):
-            self.columns = [columns]
+            self.columns: list[str] = [columns]
         elif isinstance(columns, list):
-            self.columns = list(columns)
+            self.columns: list[str] = list(columns)
         else:
             raise TypeError(
                 f"columns must be a string or list of strings, got {type(columns).__name__}"
@@ -82,7 +82,7 @@ class ColumnSelector(DataFrameFormatter):
         if not self.columns:
             raise ValueError("columns list cannot be empty")
 
-        self.mode = mode
+        self.mode: str = mode
 
     def format(self, df: pd.DataFrame) -> pd.DataFrame:
         """

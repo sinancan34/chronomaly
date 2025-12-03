@@ -25,9 +25,9 @@ class PivotTransformer:
         columns: Union[str, List[str]],
         values: str
     ):
-        self.index = index
-        self.columns = columns
-        self.values = values
+        self.index: str | list[str] = index
+        self.columns: str | list[str] = columns
+        self.values: str = values
 
     def __call__(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         """

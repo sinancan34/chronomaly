@@ -44,8 +44,8 @@ class DataFrameDataReader(DataReader, TransformableMixin):
                 f"Expected pandas DataFrame, got {type(dataframe).__name__}"
             )
 
-        self._dataframe = dataframe.copy()  # Store a copy to avoid mutations
-        self.transformers = transformers or {}
+        self._dataframe: pd.DataFrame = dataframe.copy()  # Store a copy to avoid mutations
+        self.transformers: dict[str, list[Callable]] = transformers or {}
 
     def load(self) -> pd.DataFrame:
         """

@@ -441,7 +441,7 @@ class EmailNotifier(Notifier, TransformableMixin):
         charts = charts or {}
 
         # Helper function to format numeric values
-        def format_value(val):
+        def format_value(val: Any) -> str:
             if pd.isna(val):
                 return '-'
             if isinstance(val, (int, float)):
@@ -449,7 +449,7 @@ class EmailNotifier(Notifier, TransformableMixin):
             return str(val)
 
         # Helper function to get status color
-        def get_status_style(status):
+        def get_status_style(status: Any) -> str:
             if pd.isna(status):
                 return ''
             status_upper = str(status).upper()

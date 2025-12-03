@@ -141,7 +141,7 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
 
         return forecast_std, actual_std, all_columns
 
-    def _standardize_columns(self, df: pd.DataFrame, column_list: List[str], fill_value):
+    def _standardize_columns(self, df: pd.DataFrame, column_list: List[str], fill_value: float) -> pd.DataFrame:
         missing_columns = [col for col in column_list if col not in df.columns]
         if missing_columns:
             new_cols_df = pd.DataFrame(fill_value, index=df.index, columns=missing_columns)

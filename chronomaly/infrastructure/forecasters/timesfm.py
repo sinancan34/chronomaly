@@ -71,7 +71,7 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
         )
         self._model: Any | None = None
 
-    def _get_model(self):
+    def _get_model(self) -> Any:
         """
         Initialize and compile TimesFM model.
 

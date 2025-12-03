@@ -2,7 +2,7 @@
 Chronomaly - A forecasting and anomaly detection library.
 """
 
-from typing import Optional
+from typing import Any, Optional
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -12,7 +12,7 @@ __version__ = "1.0.0"
 def configure(
     env_file_path: Optional[str] = None,
     # Add more configuration parameters here in the future
-    **kwargs
+    **kwargs: Any
 ) -> bool:
     """
     Configure the Chronomaly library.

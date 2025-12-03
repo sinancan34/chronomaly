@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chronomaly"
-version = "0.1.0"
+version = "1.0.0"
 description = "A flexible and extensible Python library for time series forecasting using Google TimesFM"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "Apache License 2.0"}
+license = "Apache-2.0"
 authors = [
     {name = "Chronomaly Contributors"}
 ]
@@ -17,7 +17,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -29,38 +28,23 @@ dependencies = [
     "pandas>=2.0.0",
     "numpy>=1.24.0",
     "torch>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "matplotlib>=3.7.0",
+    "google-cloud-bigquery>=3.10.0",
+    "db-dtypes>=1.1.0",
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "timesfm[torch] @ git+https://github.com/google-research/timesfm.git",
 ]
 
+# TimesFM backend options (torch backend is included in base dependencies)
 [project.optional-dependencies]
-bigquery = [
-    "google-cloud-bigquery>=3.10.0",
-    "db-dtypes>=1.1.0",
-]
-# TimesFM backend options (install TimesFM from GitHub first: pip install git+https://github.com/google-research/timesfm.git)
-# torch backend is already included in base dependencies
 flax = [
-    "flax",
-    "optax",
-    "einshape",
-    "orbax-checkpoint",
-    "jaxtyping",
-    "jax[cuda]",
+    "timesfm[flax] @ git+https://github.com/google-research/timesfm.git",
 ]
 xreg = [
-    "jax[cuda]",
-    "scikit-learn",
-]
-dev = [
-    "pytest>=7.4.0",
-    "black>=23.0.0",
-    "flake8>=6.0.0",
-]
-all = [
-    "google-cloud-bigquery>=3.10.0",
-    "db-dtypes>=1.1.0",
-    "pytest>=7.4.0",
-    "black>=23.0.0",
-    "flake8>=6.0.0",
+    "timesfm[xreg] @ git+https://github.com/google-research/timesfm.git",
 ]
 
 [project.urls]

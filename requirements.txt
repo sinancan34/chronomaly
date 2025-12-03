@@ -2,10 +2,9 @@
 pandas>=2.0.0
 numpy>=1.24.0
 
-# TimesFM forecasting (model version 2.5)
-# Install from GitHub: pip install git+https://github.com/google-research/timesfm.git
-# timesfm is not listed here as it must be installed from GitHub source
+# TimesFM forecasting
 torch>=2.0.0
+timesfm[torch] @ git+https://github.com/google-research/timesfm.git
 
 # Data sources
 google-cloud-bigquery>=3.10.0
@@ -18,7 +17,7 @@ python-dotenv>=1.0.0
 # Visualization
 matplotlib>=3.7.0
 
-# Optional: for development
-# pytest>=7.4.0
-# black>=23.0.0
-# flake8>=6.0.0
+# Development tools
+pytest>=7.4.0
+black>=23.0.0
+flake8>=6.0.0

@@ -7,12 +7,12 @@
 - [Problem / Motivation](#problem--motivation)
 - [Features](#features)
 - [Installation](#installation)
-- [Quick Start](#quick-start)
+- [Configuration](#configuration)
 - [Usage](#usage)
   - [Forecast Workflow](#forecast-workflow)
   - [Anomaly Detection Workflow](#anomaly-detection-workflow)
   - [Notification Workflow](#notification-workflow)
-  - [Data Sources](#data-sources)
+- [Data Sources](#data-sources)
 - [Architecture](#architecture)
 - [Contributing](#contributing)
 - [License](#license)
@@ -66,38 +66,54 @@ Time series forecasting and anomaly detection are critical needs in modern data 
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.11, 3.12 or 3.13
 - pip package manager
 
-### Basic Installation
+### Installation
 
 ```bash
-# Clone the repository
+pip install git+https://github.com/sinancan34/chronomaly.git
+```
+
+### Development Installation
+
+For contributors who want to modify the source code:
+
+```bash
 git clone https://github.com/sinancan34/chronomaly.git
 cd chronomaly
-
-# Install core dependencies
-pip install -r requirements.txt
-
-# Install TimesFM from GitHub (required)
-pip install git+https://github.com/google-research/timesfm.git
-
-# Install Chronomaly in editable mode
 pip install -e .
 ```
 
 ### Optional Dependencies
 
 ```bash
-# For BigQuery support
-pip install -e ".[bigquery]"
+# For TimesFM Flax backend (alternative to default PyTorch backend)
+pip install -e ".[flax]"
 
-# For development tools (pytest, black, flake8)
-pip install -e ".[dev]"
-
-# All optional dependencies
-pip install -e ".[all]"
+# For exogenous regressors support in TimesFM
+pip install -e ".[xreg]"
 ```
+
+> **Note**: BigQuery support is included in the base installation.
+
+---
+
+## Configuration
+
+Before using workflows that require external services (email notifications, BigQuery, etc.), configure environment variables:
+
+```python
+import chronomaly
+
+# Load environment variables from .env file in current directory
+chronomaly.configure()
+
+# Or specify a custom path
+chronomaly.configure(env_file_path='/path/to/your/.env')
+```
+
+Create a `.env` file with your settings (see [SMTP Configuration](#smtp-configuration) for email setup).
 
 ---
 
@@ -437,11 +453,13 @@ SMTP_USE_TLS=True  # Optional, defaults to True
 2. Generate an [App Password](https://support.google.com/accounts/answer/185833)
 3. Use the app password as `SMTP_PASSWORD`
 
-### Data Sources
+---
+
+## Data Sources
 
 Chronomaly supports various data sources:
 
-#### CSV Files
+### CSV Files
 
 ```python
 from chronomaly.infrastructure.data.readers.files import CSVDataReader
@@ -455,7 +473,7 @@ reader = CSVDataReader(
 # Note: CSV writer is not yet implemented. Use SQLite or BigQuery writers for output.
 ```
 
-#### SQLite
+### SQLite
 
 ```python
 from chronomaly.infrastructure.data.readers.databases import SQLiteDataReader
@@ -473,7 +491,7 @@ writer = SQLiteDataWriter(
 )
 ```
 
-#### BigQuery
+### BigQuery
 
 ```python
 from chronomaly.infrastructure.data.readers.databases import BigQueryDataReader
@@ -517,19 +535,27 @@ chronomaly/
 │   ├── transformers/     # Data transformations
 │   │   ├── pivot.py
 │   │   ├── filters/
+│   │   │   ├── value_filter.py
+│   │   │   └── cumulative_threshold.py
 │   │   └── formatters/
+│   │       ├── column_formatter.py
+│   │       └── column_selector.py
 │   ├── data/             # Data reading/writing
 │   │   ├── readers/
+│   │   │   ├── base.py
+│   │   │   ├── dataframe_reader.py  # In-memory DataFrame
 │   │   │   ├── files/    # CSV, etc.
 │   │   │   ├── databases/  # SQLite, BigQuery
 │   │   │   └── apis/     # API integrations
 │   │   └── writers/
 │   │       ├── files/
 │   │       └── databases/
-│   └── notifiers/        # Notification system
-│       ├── base.py
-│       └── email.py      # Email notifier (SMTP)
+│   ├── notifiers/        # Notification system
+│   │   ├── base.py
+│   │   └── email.py      # Email notifier (SMTP)
+│   └── visualizers/      # Visualization components
 └── shared/               # Shared utilities
+    └── mixins.py         # TransformableMixin
 ```
 
 ### Core Components
@@ -537,8 +563,8 @@ chronomaly/
 - **Workflows**: Orchestrate business workflows (ForecastWorkflow, AnomalyDetectionWorkflow, NotificationWorkflow)
 - **Forecasters**: Forecasting models (TimesFMForecaster)
 - **AnomalyDetectors**: Anomaly detection algorithms (ForecastActualAnomalyDetector)
-- **Transformers**: Data transformations (PivotTransformer, Filters, Formatters)
-- **DataReaders**: Data reading (CSV, SQLite, BigQuery)
+- **Transformers**: Data transformations (PivotTransformer, Filters, Formatters, ColumnSelector)
+- **DataReaders**: Data reading (CSV, SQLite, BigQuery, DataFrame)
 - **DataWriters**: Data writing (SQLite, BigQuery)
 - **Notifiers**: Alert notifications (EmailNotifier with SMTP support)
 

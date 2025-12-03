@@ -9,6 +9,7 @@ timesfm[torch] @ git+https://github.com/google-research/timesfm.git
 # Data sources
 google-cloud-bigquery>=3.10.0
 google-cloud-bigquery-storage==2.34.0
+pandas-gbq>=0.26.1
 db-dtypes>=1.1.0
 
 # Configuration

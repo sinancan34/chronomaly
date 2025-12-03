@@ -2,6 +2,7 @@
 Tests for notification workflow and components.
 """
 
+import os
 import pytest
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
@@ -9,6 +10,21 @@ from chronomaly.infrastructure.data.readers import DataFrameDataReader
 from chronomaly.infrastructure.notifiers import Notifier, EmailNotifier
 from chronomaly.application.workflows import NotificationWorkflow
 from chronomaly.infrastructure.transformers.filters import ValueFilter
+
+
+@pytest.fixture(autouse=True)
+def smtp_env_vars():
+    """Set up SMTP environment variables for all tests in this module."""
+    os.environ['SMTP_HOST'] = 'smtp.test.com'
+    os.environ['SMTP_USER'] = 'test@example.com'
+    os.environ['SMTP_PASSWORD'] = 'testpassword'
+    os.environ['SMTP_FROM_EMAIL'] = 'test@example.com'
+    yield
+    # Cleanup
+    os.environ.pop('SMTP_HOST', None)
+    os.environ.pop('SMTP_USER', None)
+    os.environ.pop('SMTP_PASSWORD', None)
+    os.environ.pop('SMTP_FROM_EMAIL', None)
 
 
 class TestDataFrameDataReader:
@@ -99,6 +115,40 @@ class TestEmailNotifier:
         with pytest.raises(TypeError, match="must be a string or list"):
             EmailNotifier(to=123)
 
+    def test_missing_smtp_user_raises_error(self):
+        """Test that missing SMTP_USER raises ValueError"""
+        # Temporarily clear SMTP_USER
+        original_user = os.environ.pop('SMTP_USER', None)
+        try:
+            with pytest.raises(ValueError, match="SMTP username is required"):
+                EmailNotifier(to="test@example.com")
+        finally:
+            if original_user:
+                os.environ['SMTP_USER'] = original_user
+
+    def test_missing_smtp_password_raises_error(self):
+        """Test that missing SMTP_PASSWORD raises ValueError"""
+        # Temporarily clear SMTP_PASSWORD
+        original_password = os.environ.pop('SMTP_PASSWORD', None)
+        try:
+            with pytest.raises(ValueError, match="SMTP password is required"):
+                EmailNotifier(to="test@example.com")
+        finally:
+            if original_password:
+                os.environ['SMTP_PASSWORD'] = original_password
+
+    def test_missing_smtp_host_raises_error(self):
+        """Test that missing SMTP_HOST raises ValueError"""
+        # Temporarily set empty SMTP_HOST
+        original_host = os.environ.get('SMTP_HOST')
+        os.environ['SMTP_HOST'] = ''
+        try:
+            with pytest.raises(ValueError, match="SMTP host is required"):
+                EmailNotifier(to="test@example.com")
+        finally:
+            if original_host:
+                os.environ['SMTP_HOST'] = original_host
+
     def test_payload_without_anomalies_raises_error(self):
         """Test that payload without 'anomalies' key raises ValueError"""
         notifier = EmailNotifier(to="test@example.com")
@@ -174,43 +224,32 @@ class TestEmailNotifier:
     @patch('smtplib.SMTP')
     def test_send_email_success(self, mock_smtp):
         """Test successful email sending"""
-        import os
-        
-        # Set SMTP credentials for this test (authentication is conditional)
-        os.environ['SMTP_USER'] = 'test@example.com'
-        os.environ['SMTP_PASSWORD'] = 'testpass'
-        
-        try:
-            df = pd.DataFrame({
-                'date': ['2024-01-01'],
-                'metric': ['sales'],
-                'status': ['ABOVE_UPPER'],
-                'actual': [100],
-                'forecast': [50],
-                'deviation_pct': [100.0]
-            })
+        df = pd.DataFrame({
+            'date': ['2024-01-01'],
+            'metric': ['sales'],
+            'status': ['ABOVE_UPPER'],
+            'actual': [100],
+            'forecast': [50],
+            'deviation_pct': [100.0]
+        })
 
-            notifier = EmailNotifier(to="test@example.com")
+        notifier = EmailNotifier(to="test@example.com")
 
-            # Mock SMTP server
-            mock_server = MagicMock()
-            mock_smtp.return_value.__enter__.return_value = mock_server
+        # Mock SMTP server
+        mock_server = MagicMock()
+        mock_smtp.return_value.__enter__.return_value = mock_server
 
-            # Send notification
-            notifier.notify({'anomalies': df})
+        # Send notification
+        notifier.notify({'anomalies': df})
 
-            # Verify SMTP was called (with config from environment or defaults)
-            assert mock_smtp.call_count == 1
-            # Check port is correct
-            call_args = mock_smtp.call_args
-            assert call_args[0][1] == 587  # Port
-            mock_server.starttls.assert_called_once()
-            mock_server.login.assert_called_once()  # Now called because credentials are set
-            mock_server.send_message.assert_called_once()
-        finally:
-            # Cleanup
-            os.environ.pop('SMTP_USER', None)
-            os.environ.pop('SMTP_PASSWORD', None)
+        # Verify SMTP was called (with config from environment or defaults)
+        assert mock_smtp.call_count == 1
+        # Check port is correct
+        call_args = mock_smtp.call_args
+        assert call_args[0][1] == 587  # Port
+        mock_server.starttls.assert_called_once()
+        mock_server.login.assert_called_once()
+        mock_server.send_message.assert_called_once()
 
     @patch('smtplib.SMTP')
     def test_html_generation(self, mock_smtp):

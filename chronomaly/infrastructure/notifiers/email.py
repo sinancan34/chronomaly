@@ -148,6 +148,9 @@ class EmailNotifier(Notifier, TransformableMixin):
         self.from_email = smtp_config['from_email']
         self.use_tls = smtp_config['use_tls']
 
+        # Validate SMTP credentials
+        self._validate_smtp_config()
+
     def _get_smtp_config(self) -> Dict[str, Any]:
         """
         Get SMTP configuration from environment variables.
@@ -176,6 +179,39 @@ class EmailNotifier(Notifier, TransformableMixin):
             'from_email': os.getenv('SMTP_FROM_EMAIL', os.getenv('SMTP_USER', '')),
             'use_tls': os.getenv('SMTP_USE_TLS', 'True').lower() in ('true', '1', 'yes')
         }
+
+    def _validate_smtp_config(self) -> None:
+        """
+        Validate SMTP configuration.
+
+        Raises:
+            ValueError: If required SMTP credentials are missing or invalid
+        """
+        if not self.smtp_host:
+            raise ValueError(
+                "SMTP host is required. Set SMTP_HOST environment variable."
+            )
+
+        if not isinstance(self.smtp_port, int) or not (1 <= self.smtp_port <= 65535):
+            raise ValueError(
+                f"SMTP port must be a valid port number (1-65535), got: {self.smtp_port}"
+            )
+
+        if not self.smtp_user:
+            raise ValueError(
+                "SMTP username is required. Set SMTP_USER environment variable."
+            )
+
+        if not self.smtp_password:
+            raise ValueError(
+                "SMTP password is required. Set SMTP_PASSWORD environment variable."
+            )
+
+        if not self.from_email:
+            raise ValueError(
+                "From email address is required. "
+                "Set SMTP_FROM_EMAIL or SMTP_USER environment variable."
+            )
 
     def _get_email_subject(self, anomaly_date: Optional[datetime] = None) -> str:
         """

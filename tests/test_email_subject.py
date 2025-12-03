@@ -3,9 +3,16 @@ Test script for email subject customization feature.
 This script tests various subject templates with date formatting.
 """
 
+import os
 import pandas as pd
 from datetime import datetime
 from chronomaly.infrastructure.notifiers import EmailNotifier
+
+# Set up required SMTP environment variables for testing
+os.environ['SMTP_HOST'] = 'smtp.test.com'
+os.environ['SMTP_USER'] = 'test@example.com'
+os.environ['SMTP_PASSWORD'] = 'testpassword'
+os.environ['SMTP_FROM_EMAIL'] = 'test@example.com'
 
 # Create sample anomalies DataFrame
 anomalies_df = pd.DataFrame({

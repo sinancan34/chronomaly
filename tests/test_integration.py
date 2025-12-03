@@ -4,10 +4,17 @@ This test verifies that the subject parameter works end-to-end
 without actually sending emails.
 """
 
+import os
 import pandas as pd
 from datetime import datetime
 from chronomaly.infrastructure.notifiers import EmailNotifier
 from chronomaly.application.workflows import NotificationWorkflow
+
+# Set up required SMTP environment variables for testing
+os.environ['SMTP_HOST'] = 'smtp.test.com'
+os.environ['SMTP_USER'] = 'test@example.com'
+os.environ['SMTP_PASSWORD'] = 'testpassword'
+os.environ['SMTP_FROM_EMAIL'] = 'test@example.com'
 
 print("=" * 80)
 print("Integration Test: Email Subject in NotificationWorkflow")

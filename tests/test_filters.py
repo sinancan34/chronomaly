@@ -248,6 +248,25 @@ class TestCumulativeThresholdFilter:
         # Should still filter based on value column
         assert len(result) >= 2
 
+    def test_cumulative_threshold_non_sequential_indices(self):
+        """Test filtering with non-sequential DataFrame indices.
+
+        Regression test: ensures position-based indexing (iloc) is used
+        instead of label-based indexing (loc) when finding threshold.
+        """
+        df = pd.DataFrame({
+            'metric': ['a', 'b', 'c', 'd'],
+            'value': [100, 50, 30, 20]  # Total=200
+        }, index=[10, 5, 20, 3])  # Non-sequential indices
+
+        filter = CumulativeThresholdFilter('value', threshold_pct=0.80)
+        result = filter.filter(df)
+
+        # 80% of 200 = 160, cumulative: 100, 150, 180
+        # Should keep a(100) + b(50) + c(30) = 180 >= 160
+        assert len(result) == 3
+        assert set(result['metric']) == {'a', 'b', 'c'}
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

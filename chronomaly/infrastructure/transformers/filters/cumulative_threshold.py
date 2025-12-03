@@ -75,8 +75,10 @@ class CumulativeThresholdFilter(DataFrameFilter):
         # Find minimum threshold value
         threshold_mask = cumulative_pct >= self.threshold_pct
         if threshold_mask.any():
-            first_exceed_idx = threshold_mask.idxmax()  # İlk True = ilk kez aştığı nokta
-            min_threshold = sorted_values.loc[:first_exceed_idx].min()
+            # Use position-based indexing (argmax + iloc) instead of label-based (idxmax + loc)
+            # to handle DataFrames with non-sequential indices correctly
+            first_exceed_pos = threshold_mask.argmax()  # Position of first True (0-based)
+            min_threshold = sorted_values.iloc[:first_exceed_pos + 1].min()
         else:
             min_threshold = sorted_values.min()
 

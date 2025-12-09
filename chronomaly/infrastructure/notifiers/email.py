@@ -297,7 +297,7 @@ class EmailNotifier(Notifier, TransformableMixin):
 
         # Convert to base64
         buffer = io.BytesIO()
-        plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
+        plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
         buffer.seek(0)
         image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
         plt.close()

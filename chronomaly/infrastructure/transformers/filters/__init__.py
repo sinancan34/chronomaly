@@ -13,8 +13,4 @@ from .base import DataFrameFilter
 from .cumulative_threshold import CumulativeThresholdFilter
 from .value_filter import ValueFilter
 
-__all__ = [
-    'DataFrameFilter',
-    'CumulativeThresholdFilter',
-    'ValueFilter'
-]
+__all__ = ["DataFrameFilter", "CumulativeThresholdFilter", "ValueFilter"]

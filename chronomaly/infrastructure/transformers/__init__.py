@@ -13,8 +13,4 @@ from .pivot import PivotTransformer
 from . import filters
 from . import formatters
 
-__all__ = [
-    'PivotTransformer',
-    'filters',
-    'formatters'
-]
+__all__ = ["PivotTransformer", "filters", "formatters"]

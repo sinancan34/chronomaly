@@ -9,8 +9,4 @@ from .base import DataFrameFormatter
 from .column_formatter import ColumnFormatter
 from .column_selector import ColumnSelector
 
-__all__ = [
-    'DataFrameFormatter',
-    'ColumnFormatter',
-    'ColumnSelector'
-]
+__all__ = ["DataFrameFormatter", "ColumnFormatter", "ColumnSelector"]

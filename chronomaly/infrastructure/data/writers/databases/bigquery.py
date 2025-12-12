@@ -7,6 +7,7 @@ import os
 import pandas as pd
 from typing import Optional, Dict, List, Callable
 from google.cloud import bigquery
+from google.oauth2 import service_account
 from ..base import DataWriter
 from chronomaly.shared import TransformableMixin
 
@@ -33,18 +34,45 @@ class BigQueryDataWriter(DataWriter, TransformableMixin):
 
     def __init__(
         self,
-        service_account_file: Optional[str] = None,
-        project: Optional[str] = None,
-        dataset: str = None,
-        table: str = None,
+        service_account_file: str,
+        project: str,
+        dataset: str,
+        table: str,
         create_disposition: str = "CREATE_IF_NEEDED",
         write_disposition: str = "WRITE_TRUNCATE",
         transformers: Optional[Dict[str, List[Callable]]] = None,
     ):
-        if dataset is None:
-            raise ValueError("dataset parameter is required")
-        if table is None:
-            raise ValueError("table parameter is required")
+        # Validate service_account_file (same as BigQueryDataReader)
+        if not service_account_file or not service_account_file.strip():
+            raise ValueError("'service_account_file' cannot be empty")
+
+        abs_path = os.path.abspath(service_account_file)
+        if not os.path.isfile(abs_path):
+            raise FileNotFoundError(f"'service_account_file' not found: {abs_path}")
+
+        if not os.access(abs_path, os.R_OK):
+            raise PermissionError(f"'service_account_file' is not readable: {abs_path}")
+
+        if not abs_path.endswith(".json"):
+            raise ValueError(
+                "'service_account_file' must be a JSON file (.json extension)"
+            )
+        self.service_account_file = abs_path
+
+        # Validate project
+        if not project or not project.strip():
+            raise ValueError("'project' cannot be empty")
+        self.project = project
+
+        # Validate dataset
+        if not dataset or not dataset.strip():
+            raise ValueError("'dataset' cannot be empty")
+        self.dataset = dataset
+
+        # Validate table
+        if not table or not table.strip():
+            raise ValueError("'table' cannot be empty")
+        self.table = table
 
         # Validate disposition parameters
         if create_disposition not in self.VALID_CREATE_DISPOSITIONS:
@@ -58,34 +86,6 @@ class BigQueryDataWriter(DataWriter, TransformableMixin):
                 f"Must be one of: {', '.join(sorted(self.VALID_WRITE_DISPOSITIONS))}"
             )
 
-        # PY-007 FIX: Validate service account file path
-        if service_account_file:
-            if not service_account_file.strip():
-                raise ValueError("service_account_file cannot be empty")
-
-            # Resolve to absolute path and check if it exists
-            abs_path = os.path.abspath(service_account_file)
-            if not os.path.isfile(abs_path):
-                raise FileNotFoundError(f"Service account file not found: {abs_path}")
-
-            # Check file is readable
-            if not os.access(abs_path, os.R_OK):
-                raise PermissionError(
-                    f"Service account file is not readable: {abs_path}"
-                )
-
-            # Basic validation that it's a JSON file
-            if not abs_path.endswith(".json"):
-                raise ValueError(
-                    "Service account file must be a JSON file (.json extension)"
-                )
-
-            service_account_file = abs_path
-
-        self.service_account_file = service_account_file
-        self.project = project
-        self.dataset = dataset
-        self.table = table
         self.create_disposition = create_disposition
         self.write_disposition = write_disposition
         self._client = None
@@ -93,18 +93,23 @@ class BigQueryDataWriter(DataWriter, TransformableMixin):
 
     def _get_client(self) -> bigquery.Client:
         """
-        Get or create BigQuery client.
+        Create and return BigQuery client.
 
         Returns:
             bigquery.Client: Initialized BigQuery client
         """
         if self._client is None:
-            if self.service_account_file:
-                self._client = bigquery.Client.from_service_account_json(
-                    self.service_account_file, project=self.project
+            try:
+                credentials = service_account.Credentials.from_service_account_file(
+                    self.service_account_file
                 )
-            else:
-                self._client = bigquery.Client(project=self.project)
+
+                self._client = bigquery.Client(
+                    credentials=credentials, project=self.project
+                )
+            except Exception as e:
+                raise RuntimeError(f"Failed to create BigQuery client: {str(e)}") from e
+
         return self._client
 
     def write(self, dataframe: pd.DataFrame) -> None:
@@ -123,10 +128,7 @@ class BigQueryDataWriter(DataWriter, TransformableMixin):
         client = self._get_client()
 
         # Construct table ID (modern API - replaces deprecated dataset().table())
-        if self.project:
-            table_id = f"{self.project}.{self.dataset}.{self.table}"
-        else:
-            table_id = f"{self.dataset}.{self.table}"
+        table_id = f"{self.project}.{self.dataset}.{self.table}"
 
         # Configure load job
         bigquery_job_config = bigquery.LoadJobConfig()

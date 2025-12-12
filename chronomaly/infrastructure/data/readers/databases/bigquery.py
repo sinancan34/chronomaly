@@ -20,7 +20,7 @@ class BigQueryDataReader(DataReader, TransformableMixin):
         service_account_file: Path to the service account JSON file
         project: GCP project ID
         query: SQL query to execute
-        date_column: Name of the date column (will be parsed as datetime)
+        date_column: Name of the date column (required, will be parsed as datetime)
         transformers: Optional dict of transformer lists to apply after loading data
 
     Security Notes:
@@ -35,84 +35,40 @@ class BigQueryDataReader(DataReader, TransformableMixin):
         service_account_file: str,
         project: str,
         query: str,
-        date_column: Optional[str] = None,
+        date_column: str,
         transformers: Optional[Dict[str, List[Callable]]] = None,
     ):
-        if not service_account_file:
-            raise ValueError("service_account_file cannot be empty")
+        if not service_account_file or not service_account_file.strip():
+            raise ValueError("'service_account_file' cannot be empty")
 
-        # Resolve to absolute path and check if it exists
         abs_path = os.path.abspath(service_account_file)
         if not os.path.isfile(abs_path):
-            raise FileNotFoundError(f"Service account file not found: {abs_path}")
+            raise FileNotFoundError(f"'service_account_file' not found: {abs_path}")
 
-        # Check file is readable
         if not os.access(abs_path, os.R_OK):
-            raise PermissionError(f"Service account file is not readable: {abs_path}")
+            raise PermissionError(f"'service_account_file' is not readable: {abs_path}")
 
-        # Basic validation that it's a JSON file
         if not abs_path.endswith(".json"):
             raise ValueError(
-                "Service account file must be a JSON file (.json extension)"
+                "'service_account_file' must be a JSON file (.json extension)"
             )
-
         self.service_account_file = abs_path
+
+        if not project or not project.strip():
+            raise ValueError("'project' cannot be empty")
         self.project = project
 
         if not query or not query.strip():
-            raise ValueError("Query cannot be empty")
-
-        # Check for obviously malicious patterns
-        self._validate_query(query)
+            raise ValueError("'query' cannot be empty")
         self.query = query
 
+        if not date_column or not date_column.strip():
+            raise ValueError("'date_column' cannot be empty")
         self.date_column = date_column
+
         self._client = None
+
         self.transformers = transformers or {}
-
-    def _validate_query(self, query: str) -> None:
-        """
-        Validate SQL query for obvious injection attempts.
-
-        This is a basic validation and should not be relied upon as the sole
-        security measure. Always ensure queries come from trusted sources.
-
-        Args:
-            query: SQL query to validate
-
-        Raises:
-            ValueError: If query contains suspicious patterns
-        """
-        # Convert to lowercase for case-insensitive checking
-        query_lower = query.lower()
-
-        # Check for multiple statements (basic check)
-        if query.count(";") > 1:
-            raise ValueError(
-                "Query contains multiple statements. "
-                "Only single SQL statements are allowed."
-            )
-
-        # Remove trailing semicolons for further checks
-        query_check = query_lower.rstrip("; \t\n")
-
-        # Check for SQL comments that might hide malicious code
-        if "--" in query_check or "/*" in query_check:
-            raise ValueError(
-                "SQL comments are not allowed in queries for security reasons"
-            )
-
-        # Warn about dangerous operations (these might be legitimate in some cases)
-        dangerous_keywords = ["drop", "delete", "truncate", "alter", "create"]
-        for keyword in dangerous_keywords:
-            # Use word boundaries to avoid false positives
-            if re.search(r"\b" + keyword + r"\b", query_lower):
-                # Allow these in SELECT statements only
-                if not query_lower.strip().startswith("select"):
-                    raise ValueError(
-                        f"Query contains potentially dangerous keyword: {keyword}. "
-                        f"Only SELECT queries are recommended."
-                    )
 
     def _get_client(self) -> bigquery.Client:
         """
@@ -170,23 +126,22 @@ class BigQueryDataReader(DataReader, TransformableMixin):
 
         if df.empty:
             raise ValueError(
-                "Query returned no data. Please check your query and data source."
+                "'query' returned no data. Please check your query and data source."
             )
 
-        if self.date_column:
-            if self.date_column not in df.columns:
-                raise ValueError(
-                    f"date_column '{self.date_column}' not found in query results. "
-                    f"Available columns: {list(df.columns)}"
-                )
+        if self.date_column not in df.columns:
+            raise ValueError(
+                f"date_column '{self.date_column}' not found in query results. "
+                f"Available columns: {list(df.columns)}"
+            )
 
-            try:
-                df[self.date_column] = pd.to_datetime(df[self.date_column])
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to parse date_column '{self.date_column}' "
-                    f"as datetime: {str(e)}"
-                ) from e
+        try:
+            df[self.date_column] = pd.to_datetime(df[self.date_column])
+        except Exception as e:
+            raise ValueError(
+                f"Failed to parse date_column '{self.date_column}' "
+                f"as datetime: {str(e)}"
+            ) from e
 
         # Apply transformers after loading data
         df = self._apply_transformers(df, "after")

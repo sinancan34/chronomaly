@@ -37,7 +37,6 @@ class SQLiteDataWriter(DataWriter, TransformableMixin):
         transformers: Optional[Dict[str, List[Callable]]] = None,
         **kwargs,
     ):
-        # BUG-20 FIX: Validate database path to prevent path traversal
         if not database_path:
             raise ValueError("database_path cannot be empty")
 
@@ -55,7 +54,6 @@ class SQLiteDataWriter(DataWriter, TransformableMixin):
 
         self.database_path = abs_path
 
-        # BUG-22 FIX: Validate table name to prevent SQL injection
         if not table_name:
             raise ValueError("table_name cannot be empty")
 
@@ -81,7 +79,6 @@ class SQLiteDataWriter(DataWriter, TransformableMixin):
 
         self.table_name = table_name
 
-        # BUG-27 FIX: Validate if_exists parameter
         valid_if_exists = ["fail", "replace", "append"]
         if if_exists not in valid_if_exists:
             raise ValueError(
@@ -107,7 +104,6 @@ class SQLiteDataWriter(DataWriter, TransformableMixin):
         # Apply transformers before writing data
         dataframe = self._apply_transformers(dataframe, "before")
 
-        # BUG-44 FIX: Validate dataframe type
         if not isinstance(dataframe, pd.DataFrame):
             raise TypeError(
                 f"Expected pandas DataFrame, got {type(dataframe).__name__}"
@@ -116,7 +112,6 @@ class SQLiteDataWriter(DataWriter, TransformableMixin):
         if dataframe.empty:
             raise ValueError("Cannot write empty DataFrame to database")
 
-        # BUG-28 FIX: Add comprehensive error handling
         conn = None
         try:
             conn = sqlite3.connect(self.database_path)

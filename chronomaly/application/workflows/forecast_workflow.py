@@ -49,7 +49,7 @@ class ForecastWorkflow:
         Raises:
             ValueError: If horizon is invalid or loaded data is empty
         """
-        # Validate horizon parameter (BUG-011 fix)
+
         if not isinstance(horizon, int) or horizon <= 0:
             raise ValueError(
                 f"horizon must be a positive integer, got: {horizon} "
@@ -59,15 +59,13 @@ class ForecastWorkflow:
         # Step 1: Load data (transformations handled by reader)
         df = self.data_reader.load()
 
-        # Validate loaded data (BUG-012 fix)
+
         if df is None or df.empty:
             raise ValueError(
                 "Data reader returned empty dataset. Cannot proceed with forecast."
             )
 
         # Step 2: Generate forecast
-        # Check if forecaster supports return_point parameter
-        # using inspect (BUG-010 fix)
         sig = inspect.signature(self.forecaster.forecast)
         supports_return_point = "return_point" in sig.parameters
 

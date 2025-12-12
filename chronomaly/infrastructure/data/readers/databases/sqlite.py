@@ -38,7 +38,6 @@ class SQLiteDataReader(DataReader, TransformableMixin):
         transformers: Optional[Dict[str, List[Callable]]] = None,
         **kwargs: Any,
     ):
-        # BUG-19 FIX: Validate database path to prevent path traversal
         if not database_path:
             raise ValueError("database_path cannot be empty")
 
@@ -55,7 +54,6 @@ class SQLiteDataReader(DataReader, TransformableMixin):
 
         self.database_path = abs_path
 
-        # BUG-14 FIX: Add basic SQL injection protection
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
 

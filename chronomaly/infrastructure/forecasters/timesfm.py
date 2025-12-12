@@ -56,8 +56,8 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
         **kwargs: Any,
     ):
         self.model_name: str = model_name
-        self.max_horizon: int = max_horizon  # Store for validation
-        self.frequency: str = frequency  # BUG-34 FIX: Make frequency configurable
+        self.max_horizon: int = max_horizon
+        self.frequency: str = frequency
         self.transformers: dict[str, list[Callable]] = transformers or {}
         self.config: Any = timesfm.ForecastConfig(
             max_context=max_context,
@@ -106,20 +106,17 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
             TypeError: If dataframe is not a pandas DataFrame
             ValueError: If dataframe is empty, has no columns, or horizon is invalid
         """
-        # BUG-44 FIX: Validate dataframe type
         if not isinstance(dataframe, pd.DataFrame):
             raise TypeError(
                 f"Expected pandas DataFrame, got {type(dataframe).__name__}"
             )
 
-        # BUG-32 FIX: Validate dataframe is not empty
         if dataframe.empty:
             raise ValueError("Cannot forecast on empty DataFrame")
 
         if len(dataframe.columns) == 0:
             raise ValueError("DataFrame has no columns to forecast")
 
-        # BUG-33 FIX: Validate horizon
         if not isinstance(horizon, int):
             raise TypeError(f"horizon must be an integer, got {type(horizon).__name__}")
 
@@ -181,7 +178,6 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
         Raises:
             ValueError: If index cannot be converted to datetime or dataframe is empty
         """
-        # BUG-46 FIX: Check if dataframe is empty before accessing index
         if dataframe.empty or len(dataframe) == 0:
             raise ValueError("Cannot get last date from empty DataFrame")
 
@@ -240,7 +236,6 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
         """
         forecast_data = forecast_point.T
 
-        # BUG-34 FIX: Use configurable frequency instead of hardcoded 'D'
         # Generate future dates
         last_date = self._get_last_date(dataframe)
 
@@ -312,7 +307,6 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
 
         forecast_data = np.array(forecast_data, dtype=object).T
 
-        # BUG-34 FIX: Use configurable frequency instead of hardcoded 'D'
         # Generate future dates
         last_date = self._get_last_date(dataframe)
 

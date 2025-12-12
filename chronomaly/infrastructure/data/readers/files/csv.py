@@ -31,14 +31,12 @@ class CSVDataReader(DataReader, TransformableMixin):
         transformers: Optional[Dict[str, List[Callable]]] = None,
         **kwargs: Any,
     ):
-        # BUG-17 FIX: Validate file path to prevent path traversal
         if not file_path:
             raise ValueError("file_path cannot be empty")
 
         # Resolve to absolute path
         abs_path = os.path.abspath(file_path)
 
-        # BUG-41 FIX: Check if file exists
         if not os.path.isfile(abs_path):
             raise FileNotFoundError(f"CSV file not found: {abs_path}")
 

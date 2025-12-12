@@ -78,7 +78,6 @@ class PivotTransformer:
         else:
             columns_list = list(self.columns)
 
-        # BUG-36 FIX: Validate that required columns exist in dataframe
         all_required_columns = set(index_list + columns_list + [self.values])
         missing_columns = all_required_columns - set(df.columns)
 
@@ -93,7 +92,6 @@ class PivotTransformer:
             df[column] = df[column].astype(str)
 
         # Clean string columns (lowercase, remove special characters)
-        # BUG-35 FIX: Add logging/warning instead of silent pass
         for column in df.columns:
             if df[column].dtype == "object" and column not in index_list:
                 # Check if column actually contains strings
@@ -133,7 +131,6 @@ class PivotTransformer:
         else:
             pivot_columns = columns_list[0]
 
-        # BUG-37 FIX: Add error handling around pivot_table operation
         try:
             # Create pivot table
             dataframe_pivot = df.pivot_table(

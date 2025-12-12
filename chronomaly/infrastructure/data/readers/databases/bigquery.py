@@ -146,7 +146,7 @@ class BigQueryDataReader(DataReader, TransformableMixin):
             ValueError: If query returns no data or date_column is invalid
             RuntimeError: If BigQuery query fails
         """
-        # BUG-23 FIX: Add comprehensive error handling
+
         try:
             client = self._get_client()
 
@@ -168,13 +168,11 @@ class BigQueryDataReader(DataReader, TransformableMixin):
 
             raise RuntimeError(error_msg) from e
 
-        # BUG-26 FIX: Validate that query returned data
         if df.empty:
             raise ValueError(
                 "Query returned no data. Please check your query and data source."
             )
 
-        # BUG-45 FIX: Add error handling for date column processing
         if self.date_column:
             if self.date_column not in df.columns:
                 raise ValueError(
@@ -197,8 +195,6 @@ class BigQueryDataReader(DataReader, TransformableMixin):
 
     def close(self) -> None:
         """
-        BUG-24 FIX: Close BigQuery client and release resources.
-
         This should be called when done using the reader, especially in
         long-running applications to prevent resource leaks.
         """

@@ -2,6 +2,8 @@
 TimesFM forecaster implementation.
 """
 
+import os
+
 import pandas as pd
 import numpy as np
 import torch
@@ -27,6 +29,8 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
 
     Args:
         model_name: TimesFM model name (default: 'google/timesfm-2.5-200m-pytorch')
+        hf_token: HuggingFace token for authenticated downloads. If None,
+                  reads from HF_TOKEN environment variable.
         max_context: Maximum context length (default: 1024)
         max_horizon: Maximum forecast horizon (default: 256)
         normalize_inputs: Whether to normalize inputs (default: True)
@@ -44,6 +48,7 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
     def __init__(
         self,
         model_name: str = "google/timesfm-2.5-200m-pytorch",
+        hf_token: Optional[str] = None,
         max_context: int = 1024,
         max_horizon: int = 256,
         normalize_inputs: bool = True,
@@ -56,6 +61,7 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
         **kwargs: Any,
     ):
         self.model_name: str = model_name
+        self.hf_token: str | None = hf_token or os.getenv("HF_TOKEN")
         self.max_horizon: int = max_horizon
         self.frequency: str = frequency
         self.transformers: dict[str, list[Callable]] = transformers or {}
@@ -82,7 +88,8 @@ class TimesFMForecaster(Forecaster, TransformableMixin):
             torch.set_float32_matmul_precision("high")
 
             self._model = timesfm.TimesFM_2p5_200M_torch.from_pretrained(
-                self.model_name
+                self.model_name,
+                token=self.hf_token,
             )
             self._model.compile(self.config)
 

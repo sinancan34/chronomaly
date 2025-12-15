@@ -192,6 +192,7 @@ class EmailNotifier(Notifier, TransformableMixin):
         matplotlib.use("Agg")  # Non-interactive backend
         import matplotlib.pyplot as plt
         import matplotlib.dates
+        from matplotlib.ticker import EngFormatter
         import io
         import base64
 
@@ -217,12 +218,15 @@ class EmailNotifier(Notifier, TransformableMixin):
         ax.xaxis.set_major_locator(matplotlib.dates.DayLocator(interval=2))
         plt.xticks(rotation=45, ha="right")
 
+        # Format y-axis with k, M, G suffixes for large numbers
+        ax.yaxis.set_major_formatter(EngFormatter())
+
         # Tight layout
         plt.tight_layout()
 
         # Convert to base64
         buffer = io.BytesIO()
-        plt.savefig(buffer, format="png", dpi=100, bbox_inches="tight")
+        plt.savefig(buffer, format="png", dpi=75, bbox_inches="tight")
         buffer.seek(0)
         image_base64 = base64.b64encode(buffer.read()).decode("utf-8")
         plt.close()

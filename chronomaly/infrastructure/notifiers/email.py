@@ -41,7 +41,7 @@ class EmailNotifier(Notifier, TransformableMixin):
         SMTP configuration is read from environment variables.
         Email subject can be customized via the subject parameter.
 
-        For charts to work correctly, metric names in anomalies_df['metric'] must
+        For charts to work correctly, group_key names in anomalies_df['group_key'] must
         exactly match column names in the pivoted chart data.
     """
 
@@ -238,7 +238,7 @@ class EmailNotifier(Notifier, TransformableMixin):
         Generate line charts for anomalous metrics.
 
         Args:
-            anomalies_df: DataFrame containing anomaly data with 'metric' column
+            anomalies_df: DataFrame containing anomaly data with 'group_key' column
 
         Returns:
             dict: Mapping of metric names to base64-encoded chart images
@@ -253,8 +253,8 @@ class EmailNotifier(Notifier, TransformableMixin):
             # If chart data loading fails, skip charts
             return {}
 
-        # Get unique metrics from anomalies
-        anomalous_metrics = anomalies_df["metric"].unique()
+        # Get unique group_keys from anomalies
+        anomalous_metrics = anomalies_df["group_key"].unique()
 
         # Generate charts for each metric
         charts = {}
@@ -326,7 +326,7 @@ class EmailNotifier(Notifier, TransformableMixin):
         # Store anomaly_date for use in _send_email
         self._current_anomaly_date = anomaly_date
 
-        # Generate charts BEFORE applying transformers (need metric column)
+        # Generate charts BEFORE applying transformers (need group_key column)
         # Charts are generated using original anomalies_df with all columns
         charts = self._generate_charts(anomalies_df)
 
@@ -338,19 +338,19 @@ class EmailNotifier(Notifier, TransformableMixin):
             return
 
         # Create a mapping of row data to charts
-        # If metric column exists in filtered_df, use it; otherwise use row index
-        if "metric" in filtered_df.columns:
-            # Standard case: metric column present
+        # If group_key column exists in filtered_df, use it; otherwise use row index
+        if "group_key" in filtered_df.columns:
+            # Standard case: group_key column present
             chart_mapping = charts
         else:
-            # Metric column removed by transformer: map by row index using original df
+            # group_key column removed by transformer: map by row index using original df
             chart_mapping = {}
             for idx, row in filtered_df.iterrows():
-                # Find corresponding metric in original df
-                if idx in anomalies_df.index and "metric" in anomalies_df.columns:
-                    metric = anomalies_df.loc[idx, "metric"]
-                    if metric in charts:
-                        chart_mapping[idx] = charts[metric]
+                # Find corresponding group_key in original df
+                if idx in anomalies_df.index and "group_key" in anomalies_df.columns:
+                    group_key = anomalies_df.loc[idx, "group_key"]
+                    if group_key in charts:
+                        chart_mapping[idx] = charts[group_key]
 
         # Generate HTML email content
         html_body = self._generate_html_body(filtered_df, chart_mapping)
@@ -415,8 +415,8 @@ class EmailNotifier(Notifier, TransformableMixin):
                 val = row[col]
                 formatted_val = format_value(val)
 
-                # Apply status styling
-                if col == "status":
+                # Apply alert_type styling
+                if col == "alert_type":
                     style = get_status_style(val)
                     table_html += f'<td style="{style}">{formatted_val}</td>'
                 else:
@@ -424,18 +424,18 @@ class EmailNotifier(Notifier, TransformableMixin):
 
             # Add chart column if charts exist
             if charts:
-                # Try to get chart by metric name first, then by index
+                # Try to get chart by group_key name first, then by index
                 chart_base64 = None
                 chart_key = None
 
-                if "metric" in df.columns:
-                    # Standard case: use metric column
-                    metric_name = row.get("metric", "")
-                    if metric_name in charts:
-                        chart_base64 = charts[metric_name]
-                        chart_key = metric_name
+                if "group_key" in df.columns:
+                    # Standard case: use group_key column
+                    group_key_name = row.get("group_key", "")
+                    if group_key_name in charts:
+                        chart_base64 = charts[group_key_name]
+                        chart_key = group_key_name
                 else:
-                    # Metric column removed: use row index
+                    # group_key column removed: use row index
                     if idx in charts:
                         chart_base64 = charts[idx]
                         chart_key = str(idx)

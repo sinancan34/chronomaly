@@ -21,9 +21,10 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
     Use PivotTransformer outside the detector if needed.
 
     Args:
+        dimension_names: List of dimension names to extract from group_key (required)
+        metric_name: Name of the metric being forecasted, e.g. 'impressions' (required)
         date_column: Name of the date column (default: 'date')
         exclude_columns: List of columns to exclude from comparison
-        dimension_names: List of dimension names to extract from metric
         lower_quantile_idx: Index of lower confidence bound (default: 1 for q10)
         upper_quantile_idx: Index of upper confidence bound (default: 9 for q90)
         transformers: Optional dict of transformer lists to apply after detection
@@ -34,16 +35,18 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
 
     def __init__(
         self,
+        dimension_names: List[str],
+        metric_name: str,
         date_column: str = "date",
         exclude_columns: Optional[List[str]] = None,
-        dimension_names: Optional[List[str]] = None,
         lower_quantile_idx: int = 1,
         upper_quantile_idx: int = 9,
         transformers: Optional[Dict[str, List[Callable]]] = None,
     ):
+        self.dimension_names: list[str] = dimension_names
+        self.metric_name: str = metric_name
         self.date_column: str = date_column
         self.exclude_columns: list[str] = exclude_columns or [date_column]
-        self.dimension_names: list[str] | None = dimension_names
         self.lower_quantile_idx: int = lower_quantile_idx
         self.upper_quantile_idx: int = upper_quantile_idx
         self.transformers: dict[str, list[Callable]] = transformers or {}
@@ -63,8 +66,7 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
 
         result_df = pd.DataFrame(results)
 
-        if self.dimension_names:
-            result_df = self._split_metric_to_dimensions(result_df)
+        result_df = self._split_group_key_to_dimensions(result_df)
 
         # Apply transformers after detection
         result_df = self._apply_transformers(result_df, "after")
@@ -264,13 +266,14 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
                 )
 
         result = {
-            "metric": column,
-            "actual": round(actual),
-            "forecast": round(point_forecast),
-            "lower_bound": round(lower_bound),
-            "upper_bound": round(upper_bound),
-            "status": status,
-            "deviation_pct": round(deviation_pct, 2),
+            "group_key": column,
+            "metric_name": self.metric_name,
+            "actual_value": round(actual),
+            "forecast_value": round(point_forecast),
+            "lower_limit": round(lower_bound),
+            "upper_limit": round(upper_bound),
+            "alert_type": status,
+            "anomaly_score": round(deviation_pct, 2),
         }
 
         if date_value is not None:
@@ -281,16 +284,17 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
 
         return result
 
-    def _split_metric_to_dimensions(self, df: pd.DataFrame):
-        if "metric" not in df.columns or not self.dimension_names:
+    def _split_group_key_to_dimensions(self, df: pd.DataFrame):
+        """Split group_key column into separate dimension columns."""
+        if "group_key" not in df.columns:
             return df
 
         df = df.copy()
-        metric_parts = df["metric"].str.split("_", expand=True)
+        group_key_parts = df["group_key"].str.split("_", expand=True)
 
         for i, dim_name in enumerate(self.dimension_names):
-            if i < metric_parts.shape[1]:
-                df[dim_name] = metric_parts[i]
+            if i < group_key_parts.shape[1]:
+                df[dim_name] = group_key_parts[i]
             else:
                 df[dim_name] = None
 

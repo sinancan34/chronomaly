@@ -125,6 +125,10 @@ class BigQueryDataWriter(DataWriter, TransformableMixin):
         # Apply transformers before writing data
         dataframe = self._apply_transformers(dataframe, "before")
 
+        # Convert all columns to string for consistent BigQuery schema
+        # This prevents type mismatches between empty and non-empty DataFrames
+        dataframe = dataframe.astype(str)
+
         client = self._get_client()
 
         # Construct table ID (modern API - replaces deprecated dataset().table())

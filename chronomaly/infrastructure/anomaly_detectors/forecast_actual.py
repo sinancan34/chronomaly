@@ -61,6 +61,33 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
         self.upper_quantile_idx: int = upper_quantile_idx
         self.transformers: dict[str, list[Callable]] = transformers or {}
 
+    @property
+    def _result_schema(self) -> dict[str, str]:
+        """
+        Define the schema for result DataFrame columns.
+
+        This is the single source of truth for column names and dtypes.
+        Used by both _get_empty_result_dataframe and _compare_metric.
+
+        Returns:
+            dict: Column names mapped to their pandas dtypes
+        """
+        schema = {
+            self.date_column: 'datetime64[ns]',
+            'group_key': 'object',
+            'metric_name': 'object',
+            'actual_value': 'int64',
+            'forecast_value': 'int64',
+            'lower_limit': 'int64',
+            'upper_limit': 'int64',
+            'alert_type': 'object',
+            'anomaly_score': 'float64',
+        }
+        # Add dimension columns
+        for dim_name in self.dimension_names:
+            schema[dim_name] = 'object'
+        return schema
+
     def detect(
         self, forecast_df: pd.DataFrame, actual_df: pd.DataFrame
     ) -> pd.DataFrame:
@@ -293,7 +320,7 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
             # Convert to date only (remove time component for consistency)
             if isinstance(date_value, pd.Timestamp):
                 date_value = date_value.date()
-            result = {"date": date_value, **result}
+            result = {self.date_column: date_value, **result}
 
         return result
 
@@ -301,29 +328,16 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
         """
         Create an empty DataFrame with the correct schema for anomaly detection results.
 
-        This ensures consistency between empty and non-empty results by including
-        all expected columns with appropriate data types.
+        Uses _result_schema property as the single source of truth for column
+        names and data types.
 
         Returns:
             pd.DataFrame: Empty DataFrame with complete schema
         """
-        # Define base schema with core anomaly detection columns
         schema = {
-            'date': pd.Series(dtype='object'),  # Always include for consistency
-            'group_key': pd.Series(dtype='object'),
-            'metric_name': pd.Series(dtype='object'),
-            'actual_value': pd.Series(dtype='int64'),
-            'forecast_value': pd.Series(dtype='int64'),
-            'lower_limit': pd.Series(dtype='int64'),
-            'upper_limit': pd.Series(dtype='int64'),
-            'alert_type': pd.Series(dtype='object'),
-            'anomaly_score': pd.Series(dtype='float64'),
+            col: pd.Series(dtype=dtype)
+            for col, dtype in self._result_schema.items()
         }
-
-        # Add dimension columns from dimension_names
-        for dim_name in self.dimension_names:
-            schema[dim_name] = pd.Series(dtype='object')
-
         return pd.DataFrame(schema)
 
     def _split_group_key_to_dimensions(self, df: pd.DataFrame):

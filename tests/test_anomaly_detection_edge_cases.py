@@ -26,7 +26,9 @@ class TestEmptyDataEdgeCases:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame()
         actual_df = pd.DataFrame(
@@ -44,7 +46,9 @@ class TestEmptyDataEdgeCases:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {
@@ -62,13 +66,58 @@ class TestEmptyDataEdgeCases:
 
     def test_both_dataframes_empty(self):
         """Test that both empty DataFrames raise ValueError."""
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame()
         actual_df = pd.DataFrame()
 
         with pytest.raises(ValueError, match="Forecast DataFrame is empty"):
             detector.detect(forecast_df, actual_df)
+
+    def test_empty_result_has_correct_schema(self):
+        """Test that empty result schema includes all dimension columns."""
+        from chronomaly.infrastructure.anomaly_detectors import (
+            ForecastActualAnomalyDetector,
+        )
+
+        # Test the _get_empty_result_dataframe method directly
+        detector = ForecastActualAnomalyDetector(
+            dimension_names=["platform", "channel"], metric_name="sessions"
+        )
+
+        # Call the private method to get empty DataFrame with schema
+        result = detector._get_empty_result_dataframe()
+
+        # Verify empty DataFrame has correct schema
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 0
+        assert list(result.columns) == [
+            "date",
+            "group_key",
+            "metric_name",
+            "actual_value",
+            "forecast_value",
+            "lower_limit",
+            "upper_limit",
+            "alert_type",
+            "anomaly_score",
+            "platform",
+            "channel",
+        ]
+
+        # Verify dtypes
+        assert result["actual_value"].dtype == "int64"
+        assert result["forecast_value"].dtype == "int64"
+        assert result["lower_limit"].dtype == "int64"
+        assert result["upper_limit"].dtype == "int64"
+        assert result["anomaly_score"].dtype == "float64"
+        assert result["group_key"].dtype == "object"
+        assert result["metric_name"].dtype == "object"
+        assert result["alert_type"].dtype == "object"
+        assert result["platform"].dtype == "object"
+        assert result["channel"].dtype == "object"
 
 
 class TestTypeValidation:
@@ -79,7 +128,9 @@ class TestTypeValidation:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_dict = {"date": [datetime(2024, 1, 1)]}
         actual_df = pd.DataFrame(
@@ -94,7 +145,9 @@ class TestTypeValidation:
 
     def test_actual_not_dataframe(self):
         """Test that non-DataFrame actual raises TypeError."""
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {
@@ -116,7 +169,9 @@ class TestInvalidQuantileFormat:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {
@@ -136,14 +191,16 @@ class TestInvalidQuantileFormat:
             result = detector.detect(forecast_df, actual_pivoted)
             assert len(result) == 1
             # Since q90 defaults to 0.0, actual (95) will be ABOVE_UPPER
-            assert result.iloc[0]["status"] == "ABOVE_UPPER"
+            assert result.iloc[0]["alert_type"] == "ABOVE_UPPER"
 
     def test_non_numeric_quantile_values(self):
         """Test handling of non-numeric values in quantile string."""
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {
@@ -161,14 +218,16 @@ class TestInvalidQuantileFormat:
         result = detector.detect(forecast_df, actual_pivoted)
         assert len(result) == 1
         # Should handle the error gracefully and return NO_FORECAST
-        assert result.iloc[0]["status"] == "NO_FORECAST"
+        assert result.iloc[0]["alert_type"] == "NO_FORECAST"
 
     def test_empty_quantile_string(self):
         """Test handling of empty quantile string."""
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame({"date": [datetime(2024, 1, 1)], "desktop": [""]})
         actual_df = pd.DataFrame(
@@ -180,7 +239,7 @@ class TestInvalidQuantileFormat:
 
         result = detector.detect(forecast_df, actual_pivoted)
         assert len(result) == 1
-        assert result.iloc[0]["status"] == "NO_FORECAST"
+        assert result.iloc[0]["alert_type"] == "NO_FORECAST"
 
 
 class TestDivisionByZeroEdgeCases:
@@ -191,7 +250,9 @@ class TestDivisionByZeroEdgeCases:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {"date": [datetime(2024, 1, 1)], "desktop": ["0|0|0|0|0|0|0|0|0|0"]}
@@ -205,15 +266,17 @@ class TestDivisionByZeroEdgeCases:
 
         result = detector.detect(forecast_df, actual_pivoted)
         assert len(result) == 1
-        assert result.iloc[0]["status"] == "NO_FORECAST"
-        assert result.iloc[0]["deviation_pct"] == 0.0
+        assert result.iloc[0]["alert_type"] == "NO_FORECAST"
+        assert result.iloc[0]["anomaly_score"] == 0.0
 
     def test_zero_q10_with_nonzero_actual(self):
         """Test when q10 is zero but actual is negative."""
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {"date": [datetime(2024, 1, 1)], "desktop": ["10|0|2|3|4|5|6|7|8|10"]}
@@ -227,16 +290,18 @@ class TestDivisionByZeroEdgeCases:
 
         result = detector.detect(forecast_df, actual_pivoted)
         assert len(result) == 1
-        assert result.iloc[0]["status"] == "BELOW_LOWER"
+        assert result.iloc[0]["alert_type"] == "BELOW_LOWER"
         # Deviation should be calculated as abs(actual) when lower_bound is 0
-        assert result.iloc[0]["deviation_pct"] == 5.0
+        assert result.iloc[0]["anomaly_score"] == 5.0
 
     def test_zero_q90_with_positive_actual(self):
         """Test when q90 is zero but actual is positive."""
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {"date": [datetime(2024, 1, 1)], "desktop": ["0|0|0|0|0|0|0|0|0|0"]}
@@ -251,7 +316,7 @@ class TestDivisionByZeroEdgeCases:
         result = detector.detect(forecast_df, actual_pivoted)
         assert len(result) == 1
         # Should be NO_FORECAST since all values are zero
-        assert result.iloc[0]["status"] == "NO_FORECAST"
+        assert result.iloc[0]["alert_type"] == "NO_FORECAST"
 
 
 class TestAllZeroValues:
@@ -262,7 +327,9 @@ class TestAllZeroValues:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {"date": [datetime(2024, 1, 1)], "desktop": ["0|0|0|0|0|0|0|0|0|0"]}
@@ -276,9 +343,9 @@ class TestAllZeroValues:
 
         result = detector.detect(forecast_df, actual_pivoted)
         assert len(result) == 1
-        assert result.iloc[0]["status"] == "NO_FORECAST"
-        assert result.iloc[0]["actual"] == 0
-        assert result.iloc[0]["forecast"] == 0
+        assert result.iloc[0]["alert_type"] == "NO_FORECAST"
+        assert result.iloc[0]["actual_value"] == 0
+        assert result.iloc[0]["forecast_value"] == 0
 
 
 class TestNegativeValues:
@@ -289,7 +356,9 @@ class TestNegativeValues:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {
@@ -306,8 +375,8 @@ class TestNegativeValues:
 
         result = detector.detect(forecast_df, actual_pivoted)
         assert len(result) == 1
-        assert result.iloc[0]["status"] == "BELOW_LOWER"
-        assert result.iloc[0]["actual"] == -10
+        assert result.iloc[0]["alert_type"] == "BELOW_LOWER"
+        assert result.iloc[0]["actual_value"] == -10
 
 
 class TestMismatchedDateRanges:
@@ -318,7 +387,9 @@ class TestMismatchedDateRanges:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {
@@ -346,7 +417,9 @@ class TestMismatchedDateRanges:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {
@@ -381,7 +454,9 @@ class TestDuplicateMetrics:
         transformer = PivotTransformer(
             index="date", columns=["platform"], values="sessions"
         )
-        detector = ForecastActualComparator()
+        detector = ForecastActualComparator(
+            dimension_names=["platform"], metric_name="sessions"
+        )
 
         # This shouldn't normally happen, but test graceful handling
         forecast_df = pd.DataFrame(
@@ -414,7 +489,9 @@ class TestDimensionExtraction:
         transformer = PivotTransformer(
             index="date", columns=["platform", "channel"], values="sessions"
         )
-        detector = ForecastActualComparator(dimension_names=["platform", "channel"])
+        detector = ForecastActualComparator(
+            dimension_names=["platform", "channel"], metric_name="sessions"
+        )
 
         forecast_df = pd.DataFrame(
             {
@@ -440,19 +517,22 @@ class TestDimensionExtraction:
         assert "channel" in result.columns
         assert result.iloc[0]["platform"] == "desktop"
         assert result.iloc[0]["channel"] == "organic"
-        # Metric column is still present - it's just split into dimensions, not removed
-        assert "metric" in result.columns
-        assert result.iloc[0]["metric"] == "desktop_organic"
+        # group_key column is still present - it's the source for dimensions
+        assert "group_key" in result.columns
+        assert result.iloc[0]["group_key"] == "desktop_organic"
 
     def test_dimension_names_validation(self):
         """Test that dimension_names can be used independently."""
         # Note: dimension_names validation against transformer.columns was removed
         # since transformer parameter no longer exists. This test now verifies
         # that dimension_names works correctly on its own.
-        detector = ForecastActualComparator(dimension_names=["platform", "channel"])
+        detector = ForecastActualComparator(
+            dimension_names=["platform", "channel"], metric_name="sessions"
+        )
 
         # Verify detector was created successfully
         assert detector.dimension_names == ["platform", "channel"]
+        assert detector.metric_name == "sessions"
 
 
 @pytest.mark.skip(
@@ -524,7 +604,7 @@ class TestFilteringOptions:
         result = detector.detect(forecast_df, actual_df)
         # Should only return ABOVE_P90 status
         assert len(result) == 1
-        assert result.iloc[0]["status"] == "ABOVE_P90"
+        assert result.iloc[0]["alert_type"] == "ABOVE_P90"
 
     def test_min_deviation_threshold(self):
         """Test that min_deviation_threshold works correctly."""
@@ -552,6 +632,41 @@ class TestFilteringOptions:
         result = detector.detect(forecast_df, actual_df)
         # Should filter out since deviation < 10%
         assert len(result) == 0
+
+
+class TestConstructorValidation:
+    """Test cases for constructor parameter validation."""
+
+    def test_dimension_names_required(self):
+        """Test that dimension_names parameter is validated."""
+        from chronomaly.infrastructure.anomaly_detectors import (
+            ForecastActualAnomalyDetector,
+        )
+
+        with pytest.raises(ValueError, match="dimension_names is required"):
+            ForecastActualAnomalyDetector(dimension_names=[], metric_name="sessions")
+
+    def test_metric_name_required(self):
+        """Test that metric_name parameter is validated."""
+        from chronomaly.infrastructure.anomaly_detectors import (
+            ForecastActualAnomalyDetector,
+        )
+
+        with pytest.raises(ValueError, match="metric_name is required"):
+            ForecastActualAnomalyDetector(
+                dimension_names=["platform"], metric_name=""
+            )
+
+    def test_dimension_names_must_be_list(self):
+        """Test that dimension_names must be a list."""
+        from chronomaly.infrastructure.anomaly_detectors import (
+            ForecastActualAnomalyDetector,
+        )
+
+        with pytest.raises(TypeError, match="dimension_names must be a list"):
+            ForecastActualAnomalyDetector(
+                dimension_names="platform", metric_name="sessions"
+            )
 
 
 if __name__ == "__main__":

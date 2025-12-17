@@ -43,6 +43,16 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
         upper_quantile_idx: int = 9,
         transformers: Optional[Dict[str, List[Callable]]] = None,
     ):
+        # Validate required parameters
+        if not dimension_names:
+            raise ValueError("dimension_names is required and cannot be empty")
+        if not metric_name:
+            raise ValueError("metric_name is required and cannot be empty")
+        if not isinstance(dimension_names, list):
+            raise TypeError(
+                f"dimension_names must be a list, got {type(dimension_names).__name__}"
+            )
+
         self.dimension_names: list[str] = dimension_names
         self.metric_name: str = metric_name
         self.date_column: str = date_column
@@ -62,7 +72,10 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
         results = self._compare_all_metrics(forecast_std, actual_std, all_columns)
 
         if not results:
-            return pd.DataFrame()
+            empty_df = self._get_empty_result_dataframe()
+            # Apply transformers to empty DataFrame for consistency
+            empty_df = self._apply_transformers(empty_df, "after")
+            return empty_df
 
         result_df = pd.DataFrame(results)
 
@@ -283,6 +296,35 @@ class ForecastActualAnomalyDetector(AnomalyDetector, TransformableMixin):
             result = {"date": date_value, **result}
 
         return result
+
+    def _get_empty_result_dataframe(self) -> pd.DataFrame:
+        """
+        Create an empty DataFrame with the correct schema for anomaly detection results.
+
+        This ensures consistency between empty and non-empty results by including
+        all expected columns with appropriate data types.
+
+        Returns:
+            pd.DataFrame: Empty DataFrame with complete schema
+        """
+        # Define base schema with core anomaly detection columns
+        schema = {
+            'date': pd.Series(dtype='object'),  # Always include for consistency
+            'group_key': pd.Series(dtype='object'),
+            'metric_name': pd.Series(dtype='object'),
+            'actual_value': pd.Series(dtype='int64'),
+            'forecast_value': pd.Series(dtype='int64'),
+            'lower_limit': pd.Series(dtype='int64'),
+            'upper_limit': pd.Series(dtype='int64'),
+            'alert_type': pd.Series(dtype='object'),
+            'anomaly_score': pd.Series(dtype='float64'),
+        }
+
+        # Add dimension columns from dimension_names
+        for dim_name in self.dimension_names:
+            schema[dim_name] = pd.Series(dtype='object')
+
+        return pd.DataFrame(schema)
 
     def _split_group_key_to_dimensions(self, df: pd.DataFrame):
         """Split group_key column into separate dimension columns."""

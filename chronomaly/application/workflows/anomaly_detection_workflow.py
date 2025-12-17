@@ -80,12 +80,12 @@ class AnomalyDetectionWorkflow:
         1. Load forecast data
         2. Load actual data
         3. Detect anomalies
-        4. Return results
+        4. Return results (may be empty if no anomalies detected)
 
         Note: Transformations are handled by individual components (readers/writers).
 
         Returns:
-            pd.DataFrame: Anomaly detection results
+            pd.DataFrame: Anomaly detection results (may be empty)
 
         Raises:
             ValueError: If data is empty or incompatible
@@ -105,8 +105,9 @@ class AnomalyDetectionWorkflow:
             forecast_df=forecast_df, actual_df=actual_df
         )
 
-        if anomaly_df is None or anomaly_df.empty:
-            raise ValueError("Anomaly detector returned empty results.")
+        # Empty DataFrame is now a valid result (no anomalies detected)
+        if anomaly_df is None:
+            raise ValueError("Anomaly detector returned None instead of DataFrame.")
 
         return anomaly_df
 

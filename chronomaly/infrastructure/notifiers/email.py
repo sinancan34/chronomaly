@@ -9,6 +9,7 @@ import pandas as pd
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, Any, Optional, Callable
+from jinja2 import Template, TemplateSyntaxError
 from .base import Notifier
 from chronomaly.shared import TransformableMixin
 
@@ -27,13 +28,16 @@ class EmailNotifier(Notifier, TransformableMixin):
 
     Args:
         to: Recipient email address(es). Can be a single email or list of emails.
-        template_path: Path to HTML email template file. The template must contain
-                      the required {table} placeholder. Optional placeholders are
-                      {count} and {plural}. See email_template.html for reference.
+        template_path: Path to HTML email template file (Jinja2 format). The template
+                      must contain the required {{ table }} placeholder. Optional
+                      built-in placeholders are {{ count }} and {{ plural }}.
         subject: Optional custom email subject. Supports date template variables:
                 - {date} - Date from anomaly data in YYYY-MM-DD format
                 - {date:FORMAT} - Anomaly date with custom strftime format
                 If not specified, defaults to "Anomaly Detection Alert".
+        template_variables: Optional dict of custom variables to pass to the template.
+                           These can be used in the template with Jinja2 syntax.
+                           Reserved names (table, count, plural) are silently ignored.
         transformers: Optional transformers to apply before notification
         chart_data_reader: Optional DataReader for loading historical
                           time series data. Metric names from anomalies must
@@ -53,6 +57,7 @@ class EmailNotifier(Notifier, TransformableMixin):
         to: list[str] | str,
         template_path: str,
         subject: Optional[str] = None,
+        template_variables: Optional[Dict[str, Any]] = None,
         transformers: Optional[Dict[str, list[Callable]]] = None,
         chart_data_reader: Optional[Any] = None,
     ):
@@ -71,6 +76,7 @@ class EmailNotifier(Notifier, TransformableMixin):
         self.transformers: dict[str, list[Callable]] = transformers or {}
         self.chart_data_reader: Any | None = chart_data_reader
         self._subject_template: str | None = subject
+        self._template_variables: dict[str, Any] = template_variables or {}
 
         # Load and validate template (fail fast)
         import os
@@ -201,11 +207,22 @@ class EmailNotifier(Notifier, TransformableMixin):
         if not template_content.strip():
             raise ValueError(f"Email template file is empty: {abs_path}")
 
-        # Validate required placeholders are present
-        # Only {table} is required - {count} and {plural} are optional
-        if "{table}" not in template_content:
+        # Validate Jinja2 syntax
+        try:
+            Template(template_content)
+        except TemplateSyntaxError as e:
             raise ValueError(
-                "Email template is missing required placeholder: {table}. "
+                f"Invalid Jinja2 template syntax: {str(e)}. "
+                f"Template file: {abs_path}"
+            ) from e
+
+        # Validate required placeholders are present
+        # Only {{ table }} is required - {{ count }} and {{ plural }} are optional
+        # Check for Jinja2 syntax: {{ table }} or {{table}}
+        import re
+        if not re.search(r"\{\{\s*table\s*\}\}", template_content):
+            raise ValueError(
+                "Email template is missing required placeholder: {{ table }}. "
                 "This placeholder is required to display anomaly data."
             )
 
@@ -527,21 +544,21 @@ class EmailNotifier(Notifier, TransformableMixin):
             table_html += "</tr>"
         table_html += "</tbody></table>"
 
-        # Use loaded template instead of hardcoded HTML
+        # Render Jinja2 template
         try:
-            html = self._template_content.format(
-                count=len(df),
-                plural="ies" if len(df) != 1 else "y",
-                table=table_html,
-            )
-        except KeyError as e:
-            raise RuntimeError(
-                f"Template formatting failed. Unexpected placeholder: {str(e)}. "
-                f"Template file: {self._template_path}"
-            ) from e
+            template = Template(self._template_content)
+            # Build context: start with custom variables, then override with built-ins
+            # This ensures reserved names (table, count, plural) cannot be overridden
+            context = dict(self._template_variables)
+            context.update({
+                "count": len(df),
+                "plural": "ies" if len(df) != 1 else "y",
+                "table": table_html,
+            })
+            html = template.render(**context)
         except Exception as e:
             raise RuntimeError(
-                f"Failed to format email template: {str(e)}. "
+                f"Failed to render Jinja2 template: {str(e)}. "
                 f"Template file: {self._template_path}"
             ) from e
 

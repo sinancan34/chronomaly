@@ -21,13 +21,13 @@ os.environ["SMTP_FROM_EMAIL"] = "test@example.com"
 template_content = """<html>
 <head>
     <style>
-        body {{ font-family: Arial, sans-serif; }}
+        body { font-family: Arial, sans-serif; }
     </style>
 </head>
 <body>
     <h1>Test Alert</h1>
-    <p><strong>{count}</strong> anomal{plural} detected</p>
-    {table}
+    <p><strong>{{ count }}</strong> anomal{{ plural }} detected</p>
+    {{ table }}
 </body>
 </html>"""
 

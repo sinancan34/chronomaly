@@ -35,76 +35,78 @@ def email_template_file():
     template_content = """<html>
 <head>
     <style>
-        body {{
+{% raw %}
+        body {
             font-family: Arial, sans-serif;
             background-color: #f5f5f5;
             padding: 20px;
-        }}
-        .container {{
+        }
+        .container {
             background-color: white;
             padding: 30px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             overflow-x: auto;
-        }}
-        h1 {{
+        }
+        h1 {
             color: #333;
             margin-bottom: 10px;
-        }}
-        .summary {{
+        }
+        .summary {
             color: #666;
             margin-bottom: 20px;
             font-size: 14px;
-        }}
-        .anomaly-table {{
+        }
+        .anomaly-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
-        }}
-        .anomaly-table th {{
+        }
+        .anomaly-table th {
             background-color: #4CAF50;
             color: white;
             padding: 12px;
             text-align: left;
             font-weight: bold;
             white-space: nowrap;
-        }}
-        .anomaly-table td {{
+        }
+        .anomaly-table td {
             padding: 10px;
             border-bottom: 1px solid #ddd;
             vertical-align: middle;
-        }}
-        .anomaly-table tr:hover {{
+        }
+        .anomaly-table tr:hover {
             background-color: #f5f5f5;
-        }}
-        .chart-cell {{
+        }
+        .chart-cell {
             text-align: center;
             padding: 5px;
             width: 320px;
-        }}
-        .chart-img {{
+        }
+        .chart-img {
             max-width: 300px;
             height: auto;
             border: 1px solid #ddd;
             border-radius: 4px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }}
-        .footer {{
+        }
+        .footer {
             margin-top: 30px;
             padding-top: 20px;
             border-top: 1px solid #ddd;
             color: #666;
             font-size: 12px;
-        }}
+        }
+{% endraw %}
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🚨 Anomaly Detection Alert</h1>
         <div class="summary">
-            <strong>{count}</strong> anomal{plural} detected
+            <strong>{{ count }}</strong> anomal{{ plural }} detected
         </div>
-        {table}
+        {{ table }}
         <div class="footer">
             This is an automated alert from Chronomaly anomaly detection system.
         </div>
@@ -405,7 +407,7 @@ class TestEmailNotifier:
     def test_unreadable_template_file_raises_error(self, tmp_path):
         """Test that unreadable template file raises PermissionError"""
         template_file = tmp_path / "template.html"
-        template_file.write_text("<html>{count}{plural}{table}</html>")
+        template_file.write_text("<html>{{ count }}{{ plural }}{{ table }}</html>")
         template_file.chmod(0o000)  # Make unreadable
 
         try:
@@ -429,33 +431,90 @@ class TestEmailNotifier:
         template_file = tmp_path / "template.html"
         template_file.write_text("<html><body>No table placeholder here</body></html>")
 
-        with pytest.raises(ValueError, match="missing required placeholder: \\{table\\}"):
+        with pytest.raises(ValueError, match="missing required placeholder: \\{\\{ table \\}\\}"):
             EmailNotifier(to="test@example.com", template_path=str(template_file))
 
     def test_template_with_all_placeholders_succeeds(self, tmp_path):
         """Test that template with required {table} placeholder succeeds"""
         template_file = tmp_path / "template.html"
-        template_file.write_text("<html>{table}</html>")
+        template_file.write_text("<html>{{ table }}</html>")
 
         # Should not raise
         notifier = EmailNotifier(
             to="test@example.com", template_path=str(template_file)
         )
-        assert notifier._template_content == "<html>{table}</html>"
+        assert notifier._template_content == "<html>{{ table }}</html>"
         assert notifier._template_path == str(template_file.resolve())
 
     def test_template_with_optional_placeholders_succeeds(self, tmp_path):
         """Test that template with optional {count} and {plural} placeholders works"""
         template_file = tmp_path / "template.html"
-        template_file.write_text("<html>{count} anomal{plural}: {table}</html>")
+        template_file.write_text("<html>{{ count }} anomal{{ plural }}: {{ table }}</html>")
 
         # Should not raise - count and plural are optional
         notifier = EmailNotifier(
             to="test@example.com", template_path=str(template_file)
         )
-        assert "{count}" in notifier._template_content
-        assert "{plural}" in notifier._template_content
-        assert "{table}" in notifier._template_content
+        assert "{{ count }}" in notifier._template_content
+        assert "{{ plural }}" in notifier._template_content
+        assert "{{ table }}" in notifier._template_content
+
+    @patch("smtplib.SMTP")
+    def test_template_variables_are_passed_to_template(self, mock_smtp, tmp_path):
+        """Test that custom template_variables are passed to the Jinja2 template"""
+        template_file = tmp_path / "template.html"
+        template_file.write_text(
+            "<html><h1>{{ company }}</h1><p>{{ report_type }}</p>{{ table }}</html>"
+        )
+
+        notifier = EmailNotifier(
+            to="test@example.com",
+            template_path=str(template_file),
+            template_variables={
+                "company": "emlakjet.com",
+                "report_type": "Google Search Console",
+            },
+        )
+
+        df = pd.DataFrame({"status": ["ABOVE_UPPER"], "value": [100]})
+
+        # Mock SMTP server
+        mock_server = MagicMock()
+        mock_smtp.return_value.__enter__.return_value = mock_server
+
+        notifier.notify({"anomalies": df})
+
+        # Get the message that was sent
+        call_args = mock_server.send_message.call_args[0]
+        message = call_args[0]
+        html_part = message.get_payload()[0]
+        html_content = html_part.get_payload(decode=True).decode("utf-8")
+
+        assert "emlakjet.com" in html_content
+        assert "Google Search Console" in html_content
+
+    def test_reserved_template_variables_are_ignored(self, tmp_path):
+        """Test that reserved names (table, count, plural) cannot be overridden"""
+        template_file = tmp_path / "template.html"
+        template_file.write_text("<html>{{ count }} anomal{{ plural }}: {{ table }}</html>")
+
+        # Try to override reserved names
+        notifier = EmailNotifier(
+            to="test@example.com",
+            template_path=str(template_file),
+            template_variables={
+                "table": "CUSTOM_TABLE",
+                "count": 999,
+                "plural": "CUSTOM_PLURAL",
+            },
+        )
+
+        # Should not raise - reserved names silently ignored
+        assert notifier._template_variables == {
+            "table": "CUSTOM_TABLE",
+            "count": 999,
+            "plural": "CUSTOM_PLURAL",
+        }
 
 
 class TestNotificationWorkflow:

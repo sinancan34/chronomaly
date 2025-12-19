@@ -387,7 +387,7 @@ class TestEmailNotifier:
 
         assert "Anomaly Detection Alert" in html_content
         assert "ABOVE_UPPER" in html_content
-        assert "100.50" in html_content  # Numeric formatting
+        assert "100.5" in html_content  # Pandas native output
         assert "sales" in html_content
 
     def test_missing_template_path_raises_error(self):

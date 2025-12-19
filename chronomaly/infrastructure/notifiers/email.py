@@ -327,61 +327,46 @@ class EmailNotifier(Notifier, TransformableMixin):
         Generate HTML email body with styled table.
 
         Args:
-            df: DataFrame with anomaly data. Charts can be included as a column
-                with HTML img tags via transformers.
+            df: DataFrame with anomaly data. Custom formatting and styling
+                can be applied via transformers before notification.
 
         Returns:
             str: HTML content
         """
-        # Helper function to format numeric values
-        def format_value(val: Any) -> str:
-            if pd.isna(val):
-                return "-"
-            if isinstance(val, (int, float)):
-                return f"{val:.2f}"
-            return str(val)
-
-        # Helper function to get status color
-        def get_status_style(status: Any) -> str:
-            if pd.isna(status):
-                return ""
-            status_upper = str(status).upper()
-            if "BELOW" in status_upper:
-                return "color: #2196F3; font-weight: bold;"
-            elif "ABOVE" in status_upper:
-                return "color: #f44336; font-weight: bold;"
-            elif "IN_RANGE" in status_upper or "IN RANGE" in status_upper:
-                return "color: #4CAF50;"
-            elif "NO_FORECAST" in status_upper or "NO FORECAST" in status_upper:
-                return "color: #9E9E9E;"
-            return ""
-
-        # Build table HTML manually
-        table_html = '<table class="anomaly-table">'
-
-        # Table header
-        table_html += "<thead><tr>"
-        for col in df.columns:
-            table_html += f"<th>{col}</th>"
-        table_html += "</tr></thead>"
-
-        # Table body
-        table_html += "<tbody>"
-        for idx, row in df.iterrows():
-            table_html += "<tr>"
-            for col in df.columns:
-                val = row[col]
-                formatted_val = format_value(val)
-
-                # Apply alert_type styling
-                if col == "alert_type":
-                    style = get_status_style(val)
-                    table_html += f'<td style="{style}">{formatted_val}</td>'
-                else:
-                    table_html += f"<td>{formatted_val}</td>"
-
-            table_html += "</tr>"
-        table_html += "</tbody></table>"
+        # Generate HTML table using pandas native function
+        # Generate HTML table with inline styles using pandas Styler
+        table_html = (
+            df.style.set_table_attributes('class="anomaly-table"')
+            .set_table_styles(
+                [
+                    {
+                        "selector": "th",
+                        "props": [
+                            ("background-color", "#f0f0f0"),
+                            ("border", "1px solid #ddd"),
+                            ("padding", "8px"),
+                            ("text-align", "left"),
+                        ],
+                    },
+                    {
+                        "selector": "td",
+                        "props": [
+                            ("border", "1px solid #ddd"),
+                            ("padding", "8px"),
+                        ],
+                    },
+                    {
+                        "selector": "table",
+                        "props": [
+                            ("border-collapse", "collapse"),
+                            ("width", "100%"),
+                        ],
+                    },
+                ]
+            )
+            .hide(axis="index")
+            .to_html(escape=False)
+        )
 
         # Render Jinja2 template
         try:

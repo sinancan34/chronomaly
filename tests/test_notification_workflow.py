@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock, Mock
 from chronomaly.infrastructure.data.readers import DataFrameDataReader
-from chronomaly.infrastructure.notifiers import EmailNotifier, Notifier
+from chronomaly.infrastructure.notifiers import EmailNotifier, SlackNotifier, Notifier
 from chronomaly.application.workflows import NotificationWorkflow
 from chronomaly.infrastructure.transformers.filters import ValueFilter
 
@@ -198,7 +198,9 @@ class TestEmailNotifier:
 
     def test_initialization_with_single_recipient(self, email_template_file):
         """Test EmailNotifier with single recipient"""
-        notifier = EmailNotifier(to="test@example.com", template_path=email_template_file)
+        notifier = EmailNotifier(
+            to="test@example.com", template_path=email_template_file
+        )
         assert notifier.to == ["test@example.com"]
 
     def test_initialization_with_multiple_recipients(self, email_template_file):
@@ -253,21 +255,29 @@ class TestEmailNotifier:
 
     def test_payload_without_anomalies_raises_error(self, email_template_file):
         """Test that payload without 'anomalies' key raises ValueError"""
-        notifier = EmailNotifier(to="test@example.com", template_path=email_template_file)
+        notifier = EmailNotifier(
+            to="test@example.com", template_path=email_template_file
+        )
 
         with pytest.raises(ValueError, match="must contain 'anomalies' key"):
             notifier.notify({})
 
-    def test_payload_with_invalid_anomalies_type_raises_error(self, email_template_file):
+    def test_payload_with_invalid_anomalies_type_raises_error(
+        self, email_template_file
+    ):
         """Test that payload with non-DataFrame anomalies raises TypeError"""
-        notifier = EmailNotifier(to="test@example.com", template_path=email_template_file)
+        notifier = EmailNotifier(
+            to="test@example.com", template_path=email_template_file
+        )
 
         with pytest.raises(TypeError, match="must be a DataFrame"):
             notifier.notify({"anomalies": [1, 2, 3]})
 
     def test_empty_dataframe_skips_notification(self, email_template_file):
         """Test that empty DataFrame skips sending email"""
-        notifier = EmailNotifier(to="test@example.com", template_path=email_template_file)
+        notifier = EmailNotifier(
+            to="test@example.com", template_path=email_template_file
+        )
         empty_df = pd.DataFrame()
 
         # Mock SMTP to ensure it's not called
@@ -338,7 +348,9 @@ class TestEmailNotifier:
             }
         )
 
-        notifier = EmailNotifier(to="test@example.com", template_path=email_template_file)
+        notifier = EmailNotifier(
+            to="test@example.com", template_path=email_template_file
+        )
 
         # Mock SMTP server
         mock_server = MagicMock()
@@ -369,7 +381,9 @@ class TestEmailNotifier:
             }
         )
 
-        notifier = EmailNotifier(to="test@example.com", template_path=email_template_file)
+        notifier = EmailNotifier(
+            to="test@example.com", template_path=email_template_file
+        )
 
         # Mock SMTP
         mock_server = MagicMock()
@@ -397,9 +411,7 @@ class TestEmailNotifier:
 
     def test_nonexistent_template_file_raises_error(self):
         """Test that nonexistent template file raises FileNotFoundError"""
-        with pytest.raises(
-            FileNotFoundError, match="Email template file not found"
-        ):
+        with pytest.raises(FileNotFoundError, match="Email template file not found"):
             EmailNotifier(
                 to="test@example.com", template_path="/nonexistent/template.html"
             )
@@ -412,9 +424,7 @@ class TestEmailNotifier:
 
         try:
             with pytest.raises(PermissionError, match="not readable"):
-                EmailNotifier(
-                    to="test@example.com", template_path=str(template_file)
-                )
+                EmailNotifier(to="test@example.com", template_path=str(template_file))
         finally:
             template_file.chmod(0o644)  # Restore permissions for cleanup
 
@@ -431,7 +441,9 @@ class TestEmailNotifier:
         template_file = tmp_path / "template.html"
         template_file.write_text("<html><body>No table placeholder here</body></html>")
 
-        with pytest.raises(ValueError, match="missing required placeholder: \\{\\{ table \\}\\}"):
+        with pytest.raises(
+            ValueError, match="missing required placeholder: \\{\\{ table \\}\\}"
+        ):
             EmailNotifier(to="test@example.com", template_path=str(template_file))
 
     def test_template_with_all_placeholders_succeeds(self, tmp_path):
@@ -449,7 +461,9 @@ class TestEmailNotifier:
     def test_template_with_optional_placeholders_succeeds(self, tmp_path):
         """Test that template with optional {count} and {plural} placeholders works"""
         template_file = tmp_path / "template.html"
-        template_file.write_text("<html>{{ count }} anomal{{ plural }}: {{ table }}</html>")
+        template_file.write_text(
+            "<html>{{ count }} anomal{{ plural }}: {{ table }}</html>"
+        )
 
         # Should not raise - count and plural are optional
         notifier = EmailNotifier(
@@ -496,7 +510,9 @@ class TestEmailNotifier:
     def test_reserved_template_variables_are_ignored(self, tmp_path):
         """Test that reserved names (table, count, plural) cannot be overridden"""
         template_file = tmp_path / "template.html"
-        template_file.write_text("<html>{{ count }} anomal{{ plural }}: {{ table }}</html>")
+        template_file.write_text(
+            "<html>{{ count }} anomal{{ plural }}: {{ table }}</html>"
+        )
 
         # Try to override reserved names
         notifier = EmailNotifier(
@@ -515,6 +531,467 @@ class TestEmailNotifier:
             "count": 999,
             "plural": "CUSTOM_PLURAL",
         }
+
+
+@pytest.fixture(autouse=True)
+def slack_env_vars():
+    """Set up Slack environment variables for all tests in this module."""
+    os.environ["SLACK_BOT_TOKEN"] = "xoxb-test-token-123456"
+    yield
+    # Cleanup
+    os.environ.pop("SLACK_BOT_TOKEN", None)
+
+
+@pytest.fixture
+def slack_template_file():
+    """Create a temporary Slack template file for testing."""
+    template_content = """{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Anomaly Alert"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*{{ count }}* anomalies detected"
+      }
+    }
+  ]
+}"""
+
+    # Create temporary file
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        f.write(template_content)
+        temp_path = f.name
+
+    yield temp_path
+
+    # Cleanup
+    Path(temp_path).unlink(missing_ok=True)
+
+
+class TestSlackNotifier:
+    """Tests for SlackNotifier"""
+
+    # ===== INITIALIZATION TESTS =====
+
+    def test_initialization_with_channel_name(self, slack_template_file):
+        """Test SlackNotifier with channel name (#channel)"""
+        notifier = SlackNotifier(recipient="#alerts", template_path=slack_template_file)
+        assert notifier.recipient == "#alerts"
+        assert notifier._recipient_type == "channel"
+
+    def test_initialization_with_channel_id(self, slack_template_file):
+        """Test SlackNotifier with channel ID (C...)"""
+        notifier = SlackNotifier(
+            recipient="C01234ABCD", template_path=slack_template_file
+        )
+        assert notifier.recipient == "C01234ABCD"
+        assert notifier._recipient_type == "channel"
+
+    def test_initialization_with_user_name(self, slack_template_file):
+        """Test SlackNotifier with user name (@user)"""
+        notifier = SlackNotifier(recipient="@john", template_path=slack_template_file)
+        assert notifier.recipient == "@john"
+        assert notifier._recipient_type == "user"
+
+    def test_initialization_with_user_id(self, slack_template_file):
+        """Test SlackNotifier with user ID (U...)"""
+        notifier = SlackNotifier(
+            recipient="U01234ABCD", template_path=slack_template_file
+        )
+        assert notifier.recipient == "U01234ABCD"
+        assert notifier._recipient_type == "user"
+
+    # ===== VALIDATION TESTS =====
+
+    def test_empty_recipient_raises_error(self, slack_template_file):
+        """Test that empty recipient raises ValueError"""
+        with pytest.raises(ValueError, match="'recipient' cannot be empty"):
+            SlackNotifier(recipient="", template_path=slack_template_file)
+
+    def test_invalid_recipient_type_raises_error(self, slack_template_file):
+        """Test that non-string recipient raises TypeError"""
+        with pytest.raises(TypeError, match="must be a string"):
+            SlackNotifier(recipient=123, template_path=slack_template_file)
+
+    def test_invalid_recipient_format_raises_error(self, slack_template_file):
+        """Test that invalid recipient format raises ValueError"""
+        with pytest.raises(ValueError, match="Invalid recipient format"):
+            SlackNotifier(recipient="invalid-format", template_path=slack_template_file)
+
+    def test_missing_slack_token_raises_error(self, slack_template_file):
+        """Test that missing SLACK_BOT_TOKEN raises ValueError"""
+        original_token = os.environ.pop("SLACK_BOT_TOKEN", None)
+        try:
+            with pytest.raises(ValueError, match="Slack bot token is required"):
+                SlackNotifier(recipient="#alerts", template_path=slack_template_file)
+        finally:
+            if original_token:
+                os.environ["SLACK_BOT_TOKEN"] = original_token
+
+    def test_invalid_token_format_raises_error(self, slack_template_file):
+        """Test that invalid token format raises ValueError"""
+        original_token = os.environ.get("SLACK_BOT_TOKEN")
+        os.environ["SLACK_BOT_TOKEN"] = "invalid-token"
+        try:
+            with pytest.raises(ValueError, match="Bot tokens must start with 'xoxb-'"):
+                SlackNotifier(recipient="#alerts", template_path=slack_template_file)
+        finally:
+            if original_token:
+                os.environ["SLACK_BOT_TOKEN"] = original_token
+
+    def test_missing_template_path_raises_error(self):
+        """Test that missing template_path raises ValueError"""
+        with pytest.raises(ValueError, match="template_path cannot be empty"):
+            SlackNotifier(recipient="#alerts", template_path="")
+
+    def test_nonexistent_template_file_raises_error(self):
+        """Test that nonexistent template file raises FileNotFoundError"""
+        with pytest.raises(FileNotFoundError, match="Slack template file not found"):
+            SlackNotifier(
+                recipient="#alerts", template_path="/nonexistent/template.json"
+            )
+
+    def test_empty_template_file_raises_error(self, tmp_path):
+        """Test that empty template file raises ValueError"""
+        template_file = tmp_path / "template.json"
+        template_file.write_text("")
+
+        with pytest.raises(ValueError, match="Slack template file is empty"):
+            SlackNotifier(recipient="#alerts", template_path=str(template_file))
+
+    def test_invalid_json_template_raises_error(self, tmp_path):
+        """Test that template with invalid JSON raises ValueError"""
+        template_file = tmp_path / "template.json"
+        template_file.write_text('{"blocks": [')  # Invalid JSON
+
+        with pytest.raises(ValueError, match="does not render to valid JSON"):
+            SlackNotifier(recipient="#alerts", template_path=str(template_file))
+
+    def test_template_missing_blocks_key_raises_error(self, tmp_path):
+        """Test that template without 'blocks' key raises ValueError"""
+        template_file = tmp_path / "template.json"
+        template_file.write_text('{"text": "Hello"}')  # Missing 'blocks'
+
+        # This will pass validation but fail during _generate_message_blocks
+        notifier = SlackNotifier(recipient="#alerts", template_path=str(template_file))
+
+        df = pd.DataFrame({"status": ["ABOVE_UPPER"]})
+
+        with pytest.raises(RuntimeError, match="must contain a 'blocks' key"):
+            notifier._generate_message_blocks(df)
+
+    # ===== PAYLOAD VALIDATION TESTS =====
+
+    def test_payload_without_anomalies_raises_error(self, slack_template_file):
+        """Test that payload without 'anomalies' key raises ValueError"""
+        notifier = SlackNotifier(recipient="#alerts", template_path=slack_template_file)
+
+        with pytest.raises(ValueError, match="must contain 'anomalies' key"):
+            notifier.notify({})
+
+    def test_payload_with_invalid_anomalies_type_raises_error(
+        self, slack_template_file
+    ):
+        """Test that payload with non-DataFrame anomalies raises TypeError"""
+        notifier = SlackNotifier(recipient="#alerts", template_path=slack_template_file)
+
+        with pytest.raises(TypeError, match="must be a DataFrame"):
+            notifier.notify({"anomalies": [1, 2, 3]})
+
+    # ===== BEHAVIOR TESTS =====
+
+    def test_empty_dataframe_skips_notification(self, slack_template_file):
+        """Test that empty DataFrame skips sending message"""
+        notifier = SlackNotifier(recipient="#alerts", template_path=slack_template_file)
+        empty_df = pd.DataFrame()
+
+        # Mock Slack client to ensure it's not called
+        with patch.object(notifier.client, "chat_postMessage") as mock_post:
+            notifier.notify({"anomalies": empty_df})
+            mock_post.assert_not_called()
+
+    def test_transformers_filter_before_notification(self, slack_template_file):
+        """Test that transformers are applied before notification"""
+        df = pd.DataFrame(
+            {
+                "status": ["ABOVE_UPPER", "IN_RANGE", "BELOW_LOWER"],
+                "value": [100, 50, 10],
+            }
+        )
+
+        notifier = SlackNotifier(
+            recipient="#alerts",
+            template_path=slack_template_file,
+            transformers={
+                "before": [ValueFilter("status", values=["IN_RANGE"], mode="include")]
+            },
+        )
+
+        # Mock Slack client
+        with patch.object(notifier, "_resolve_recipient_id", return_value="C123"):
+            with patch.object(notifier.client, "chat_postMessage") as mock_post:
+                mock_post.return_value = {"ok": True}
+                notifier.notify({"anomalies": df})
+
+                # Should be called since we kept IN_RANGE
+                mock_post.assert_called_once()
+
+    def test_filtered_to_empty_skips_notification(self, slack_template_file):
+        """Test that filtering to empty DataFrame skips notification"""
+        df = pd.DataFrame({"status": ["IN_RANGE", "IN_RANGE"], "value": [50, 60]})
+
+        notifier = SlackNotifier(
+            recipient="#alerts",
+            template_path=slack_template_file,
+            transformers={
+                "before": [
+                    ValueFilter(
+                        "status",
+                        values=["ABOVE_UPPER", "BELOW_LOWER"],
+                        mode="include",
+                    )
+                ]
+            },
+        )
+
+        # Mock Slack client to ensure it's not called
+        with patch.object(notifier.client, "chat_postMessage") as mock_post:
+            notifier.notify({"anomalies": df})
+            mock_post.assert_not_called()
+
+    # ===== MESSAGE SENDING TESTS =====
+
+    @patch("chronomaly.infrastructure.notifiers.slack.WebClient")
+    def test_send_message_success(self, mock_webclient_class, slack_template_file):
+        """Test successful message sending to channel"""
+        df = pd.DataFrame(
+            {
+                "date": ["2024-01-01"],
+                "metric": ["sales"],
+                "status": ["ABOVE_UPPER"],
+                "actual": [100],
+                "forecast": [50],
+                "deviation_pct": [100.0],
+            }
+        )
+
+        # Mock WebClient instance
+        mock_client = MagicMock()
+        mock_webclient_class.return_value = mock_client
+        mock_client.chat_postMessage.return_value = {"ok": True}
+
+        notifier = SlackNotifier(
+            recipient="C01234ABCD",  # Channel ID (no resolution needed)
+            template_path=slack_template_file,
+        )
+
+        # Send notification
+        notifier.notify({"anomalies": df})
+
+        # Verify message was sent
+        mock_client.chat_postMessage.assert_called_once()
+        call_args = mock_client.chat_postMessage.call_args
+
+        assert call_args[1]["channel"] == "C01234ABCD"
+        assert "blocks" in call_args[1]
+        assert call_args[1]["text"] == "Anomaly Detection Alert"
+
+    @patch("chronomaly.infrastructure.notifiers.slack.WebClient")
+    def test_channel_name_resolution(self, mock_webclient_class, slack_template_file):
+        """Test channel name resolution to ID"""
+        # Mock WebClient instance
+        mock_client = MagicMock()
+        mock_webclient_class.return_value = mock_client
+
+        # Mock conversations_list response
+        mock_client.conversations_list.return_value = {
+            "channels": [
+                {"id": "C111", "name": "general"},
+                {"id": "C222", "name": "alerts"},
+                {"id": "C333", "name": "random"},
+            ]
+        }
+        mock_client.chat_postMessage.return_value = {"ok": True}
+
+        notifier = SlackNotifier(recipient="#alerts", template_path=slack_template_file)
+
+        df = pd.DataFrame({"status": ["ABOVE_UPPER"]})
+        notifier.notify({"anomalies": df})
+
+        # Verify channel was resolved correctly
+        mock_client.conversations_list.assert_called_once()
+        call_args = mock_client.chat_postMessage.call_args
+        assert call_args[1]["channel"] == "C222"
+
+    @patch("chronomaly.infrastructure.notifiers.slack.WebClient")
+    def test_user_name_resolution(self, mock_webclient_class, slack_template_file):
+        """Test user name resolution to ID"""
+        # Mock WebClient instance
+        mock_client = MagicMock()
+        mock_webclient_class.return_value = mock_client
+
+        # Mock users_list response
+        mock_client.users_list.return_value = {
+            "members": [
+                {"id": "U111", "name": "alice", "real_name": "Alice Smith"},
+                {"id": "U222", "name": "john", "real_name": "John Doe"},
+                {"id": "U333", "name": "bob", "real_name": "Bob Johnson"},
+            ]
+        }
+        mock_client.chat_postMessage.return_value = {"ok": True}
+
+        notifier = SlackNotifier(recipient="@john", template_path=slack_template_file)
+
+        df = pd.DataFrame({"status": ["ABOVE_UPPER"]})
+        notifier.notify({"anomalies": df})
+
+        # Verify user was resolved correctly
+        mock_client.users_list.assert_called_once()
+        call_args = mock_client.chat_postMessage.call_args
+        assert call_args[1]["channel"] == "U222"
+
+    @patch("chronomaly.infrastructure.notifiers.slack.WebClient")
+    def test_channel_not_found_error(self, mock_webclient_class, slack_template_file):
+        """Test error when channel is not found"""
+        # Mock WebClient instance
+        mock_client = MagicMock()
+        mock_webclient_class.return_value = mock_client
+
+        # Mock empty channel list
+        mock_client.conversations_list.return_value = {"channels": []}
+
+        notifier = SlackNotifier(
+            recipient="#nonexistent", template_path=slack_template_file
+        )
+
+        df = pd.DataFrame({"status": ["ABOVE_UPPER"]})
+
+        with pytest.raises(ValueError, match="Channel not found"):
+            notifier.notify({"anomalies": df})
+
+    @patch("chronomaly.infrastructure.notifiers.slack.WebClient")
+    def test_user_not_found_error(self, mock_webclient_class, slack_template_file):
+        """Test error when user is not found"""
+        # Mock WebClient instance
+        mock_client = MagicMock()
+        mock_webclient_class.return_value = mock_client
+
+        # Mock empty user list
+        mock_client.users_list.return_value = {"members": []}
+
+        notifier = SlackNotifier(
+            recipient="@nonexistent", template_path=slack_template_file
+        )
+
+        df = pd.DataFrame({"status": ["ABOVE_UPPER"]})
+
+        with pytest.raises(ValueError, match="User not found"):
+            notifier.notify({"anomalies": df})
+
+    @patch("chronomaly.infrastructure.notifiers.slack.WebClient")
+    def test_slack_api_error_handling(self, mock_webclient_class, slack_template_file):
+        """Test handling of Slack API errors"""
+        from slack_sdk.errors import SlackApiError
+
+        # Mock WebClient instance
+        mock_client = MagicMock()
+        mock_webclient_class.return_value = mock_client
+
+        # Mock API error
+        mock_response = {"error": "not_in_channel", "ok": False}
+        mock_client.chat_postMessage.side_effect = SlackApiError(
+            message="Error", response=mock_response
+        )
+
+        notifier = SlackNotifier(
+            recipient="C01234ABCD", template_path=slack_template_file
+        )
+
+        df = pd.DataFrame({"status": ["ABOVE_UPPER"]})
+
+        with pytest.raises(RuntimeError, match="Bot is not in channel"):
+            notifier.notify({"anomalies": df})
+
+    def test_template_variables_are_passed(self, tmp_path):
+        """Test that custom template_variables are passed to template"""
+        template_file = tmp_path / "template.json"
+        template_file.write_text(
+            """{
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "{{ company }} - {{ count }} anomalies"
+      }
+    }
+  ]
+}"""
+        )
+
+        with patch(
+            "chronomaly.infrastructure.notifiers.slack.WebClient"
+        ) as mock_webclient_class:
+            mock_client = MagicMock()
+            mock_webclient_class.return_value = mock_client
+            mock_client.chat_postMessage.return_value = {"ok": True}
+
+            notifier = SlackNotifier(
+                recipient="C01234ABCD",
+                template_path=str(template_file),
+                template_variables={"company": "Acme Corp"},
+            )
+
+            df = pd.DataFrame({"status": ["ABOVE_UPPER"]})
+            notifier.notify({"anomalies": df})
+
+            # Get blocks from call
+            call_args = mock_client.chat_postMessage.call_args
+            blocks = call_args[1]["blocks"]
+
+            # Verify custom variable was rendered
+            assert "Acme Corp" in blocks[0]["text"]["text"]
+            assert "1 anomalies" in blocks[0]["text"]["text"]
+
+    # ===== INTEGRATION TESTS =====
+
+    @patch("chronomaly.infrastructure.notifiers.slack.WebClient")
+    def test_integration_with_notification_workflow(
+        self, mock_webclient_class, slack_template_file
+    ):
+        """Integration test with NotificationWorkflow"""
+        df = pd.DataFrame(
+            {
+                "date": ["2024-01-01"],
+                "metric": ["sales"],
+                "status": ["ABOVE_UPPER"],
+                "actual": [100],
+                "forecast": [50],
+            }
+        )
+
+        # Mock WebClient
+        mock_client = MagicMock()
+        mock_webclient_class.return_value = mock_client
+        mock_client.chat_postMessage.return_value = {"ok": True}
+
+        slack_notifier = SlackNotifier(
+            recipient="C01234ABCD", template_path=slack_template_file
+        )
+
+        workflow = NotificationWorkflow(anomalies_data=df, notifiers=[slack_notifier])
+
+        workflow.run()
+
+        # Verify message was sent
+        mock_client.chat_postMessage.assert_called_once()
 
 
 class TestNotificationWorkflow:
@@ -615,7 +1092,9 @@ class TestNotificationWorkflow:
             }
         )
 
-        email_notifier = EmailNotifier(to="test@example.com", template_path=email_template_file)
+        email_notifier = EmailNotifier(
+            to="test@example.com", template_path=email_template_file
+        )
 
         workflow = NotificationWorkflow(anomalies_data=df, notifiers=[email_notifier])
 

@@ -1,0 +1,40 @@
+{
+    "blocks": [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "🚨 Anomaly Detection Alert"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*{{ count }}* anomal{% if count != 1 %}ies{% else %}y{% endif %} detected"
+            }
+        },
+        {
+            "type": "divider"
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "{% for anomaly in anomalies %}*{{ anomaly.metric_name }}* | {{ anomaly.group_key }}\n• Status: `{{ anomaly.alert_type }}`\n• Actual: {{ anomaly.actual_value }} | Forecast: {{ anomaly.forecast_value }}\n• Score: {{ anomaly.anomaly_score }}\n{% if not loop.last %}\n{% endif %}{% endfor %}"
+            }
+        },
+        {
+            "type": "divider"
+        },
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": "_Automated alert from Chronomaly anomaly detection system_"
+                }
+            ]
+        }
+    ]
+}
